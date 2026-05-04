@@ -227,26 +227,71 @@ only to:
 
 Default: **20 attempts / 15 minutes / IP**. Tunable via `AUTH_RATE_LIMIT_MAX`.
 
-### 2.4 ⚠️ Rate-limit store is in-memory
+### 2.4 ✅ Rate-limit counters now live in Redis
 
-If you run more than one backend instance behind a load balancer, each
-instance has its own counter. The effective limit becomes
-`instances × max`. Switching to a Redis-backed store (using the
-`rate-limit-redis` package, since you already run Redis) closes that
-gap. This was not changed automatically because it adds a dependency
-and only matters once you scale horizontally.
+**The problem.** `express-rate-limit` defaults to an in-memory store.
+With more than one backend instance behind a load balancer, every
+instance kept its own counter — the effective limit became
+`instances × max`, defeating the brute-force protection.
 
-### 2.5 ⚠️ Audit the password-reset and Google-OAuth flows
+**What we did.**
 
-These weren't changed, but please confirm:
+- Added `rate-limit-redis` as a direct dependency.
+- `src/app.js` now plumbs every limiter through a `RedisStore` when
+  Redis is reachable. If Redis is offline at boot, we transparently
+  fall back to the library's in-memory store and log a warning, so a
+  Redis outage never takes the API down.
+- Exposed a thin `sendCommand` passthrough on `src/config/redis.js`
+  so the adapter can issue raw commands.
 
-- `forgot-password` returns the same response whether the email exists
-  or not (don't leak account existence).
-- Reset tokens are single-use, expire within ~30 minutes, and are
-  hashed at rest (so a leaked DB doesn't grant resets).
-- Google OAuth callback uses the `state` parameter (CSRF) and only
-  links to an existing account when the email matches *and* the user
-  is already logged in.
+Counters are namespaced with prefixes (`rl:global:`, `rl:auth:`) so
+they don't collide with the existing session keys.
+
+### 2.5 ✅ Password reset and Google OAuth flows hardened
+
+**Password reset (`/api/auth/forgot-password`, `/verify-reset-token`,
+`/reset-password`).**
+
+- The response is now identical whether the email exists, doesn't
+  exist, or belongs to a Google-only account. Previously we returned
+  a 400 "this account uses Google Sign-In" — that leaked both the
+  account's existence and its sign-in method.
+- Reset tokens are now **hashed (SHA-256) at rest in Redis**. The user
+  receives the plain token by email; the lookup hashes the supplied
+  token before comparing. A Redis dump no longer hands an attacker
+  usable reset tokens.
+- Token TTL reduced from 1 hour to **30 minutes**.
+- Tokens are single-use (deleted on successful reset) — already true
+  before and still true.
+- On a successful reset we now also **revoke every active session for
+  that user** (`session:<userId>:*` keys are deleted). If the password
+  was reset because the account was compromised, any attacker still
+  logged in is kicked out.
+- Bumped the bcrypt cost factor used in `resetPassword` from 10 to 12
+  in line with the recommendation in section 4.
+
+**Google OAuth (`/api/auth/google` start + `/google/callback`).**
+
+- **CSRF protection.** Added a Redis-backed `state` round-trip:
+  - On `/google` we mint a 24-byte random token, store it in Redis
+    with a 5-minute TTL, and pass it in the OAuth `state` parameter.
+  - The callback rejects any request whose `state` doesn't match a
+    live Redis entry, then deletes the entry (single-use).
+  - The existing mobile-vs-web platform hint that abused `state`
+    is preserved — we now pack it as `<csrf>.<platform>` in the
+    same value.
+- **No more silent account-linking by email.** Previously, if Google
+  returned an email that already matched a password user, we set
+  `user.google_id` automatically — meaning anyone who could create
+  a Google account for that email could take over the existing
+  account. The strategy now refuses to log in via Google when an
+  unlinked password account exists with the same email and tells the
+  user to "sign in with your password and link Google from settings"
+  (i.e. while already authenticated).
+- **Google `email_verified` enforced.** We now check
+  `email_verified === true` on the Google profile and refuse the
+  login otherwise. This protects against the (rare) case where
+  Google itself hasn't confirmed ownership.
 
 ---
 

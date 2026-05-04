@@ -1285,32 +1285,33 @@ module.exports = {
         });
       }
 
-      // Check if user is a Google OAuth user (no password reset for OAuth users)
-      if (user && user.google_id && !user.password) {
-        return res.status(400).json({
-          success: false,
-          error: 'This account uses Google Sign-In. Please use Google to login.'
-        });
-      }
+      // Account-existence and account-type are both secrets — never tell
+      // the requester which case we're in. We return the same response
+      // shape (and on the same approximate latency) regardless of:
+      //   - whether the email belongs to any user,
+      //   - whether the matched user is a password user or a Google user.
+      // For Google-only accounts we just don't issue a token / email.
+      const isGoogleOnly = !!(user && user.google_id && !user.password);
 
-      // Always return success message (security: don't reveal if email exists)
-      // But only send email if user exists
-      if (user) {
+      if (user && !isGoogleOnly) {
         const crypto = require('crypto');
-        const resetToken = crypto.randomBytes(32).toString('hex');
-        const resetTokenExpiry = Date.now() + 3600000; // 1 hour from now
+        // Send the *plain* token to the user via email; store only its
+        // SHA-256 hash in Redis. If the Redis dataset ever leaks, an
+        // attacker still cannot reuse the tokens.
+        const plainToken = crypto.randomBytes(32).toString('hex');
+        const tokenHash = crypto.createHash('sha256').update(plainToken).digest('hex');
+        const expirySeconds = 30 * 60; // 30 minutes
+        const resetTokenExpiry = Date.now() + expirySeconds * 1000;
 
-        // Store reset token in Redis (or in-memory fallback)
         const redisClient = require('../config/redis');
-        const tokenKey = `password_reset:${resetToken}`;
+        const tokenKey = `password_reset:${tokenHash}`;
         const tokenData = JSON.stringify({
           userId: user.id,
           email: user.email,
           expiresAt: resetTokenExpiry,
         });
-
-        // Store in Redis with 1 hour expiry
-        await redisClient.setEx(tokenKey, 3600, tokenData);
+        await redisClient.setEx(tokenKey, expirySeconds, tokenData);
+        const resetToken = plainToken; // used in the email URL below
 
         // Send reset email
         const emailService = require('../services/emailService');
@@ -1345,7 +1346,7 @@ module.exports = {
                 </div>
                 <p>Or copy and paste this link into your browser:</p>
                 <p style="word-break: break-all; color: #6b7280; font-size: 12px;">${resetUrl}</p>
-                <p><strong>This link will expire in 1 hour.</strong></p>
+                <p><strong>This link will expire in 30 minutes and can only be used once.</strong></p>
                 <p>If you didn't request this password reset, please ignore this email.</p>
               </div>
               <div class="footer">
@@ -1366,7 +1367,7 @@ You requested to reset your password for your Fintranzact account.
 Click this link to reset your password:
 ${resetUrl}
 
-This link will expire in 1 hour.
+This link will expire in 30 minutes.
 
 If you didn't request this password reset, please ignore this email.
 
@@ -1404,9 +1405,12 @@ This is an automated email from ${process.env.APP_NAME || 'Fintranzact'}
         });
       }
 
-      // Get token from Redis
+      // Look up the token in Redis by its SHA-256 hash. We never store
+      // the plain token, so a Redis dump can't be used to hijack resets.
+      const crypto = require('crypto');
       const redisClient = require('../config/redis');
-      const tokenKey = `password_reset:${token}`;
+      const tokenHash = crypto.createHash('sha256').update(token).digest('hex');
+      const tokenKey = `password_reset:${tokenHash}`;
       const tokenDataStr = await redisClient.get(tokenKey);
 
       if (!tokenDataStr) {
@@ -1459,9 +1463,11 @@ This is an automated email from ${process.env.APP_NAME || 'Fintranzact'}
         });
       }
 
-      // Get token from Redis
+      // Look up the token in Redis by its SHA-256 hash (see forgotPassword).
+      const crypto = require('crypto');
       const redisClient = require('../config/redis');
-      const tokenKey = `password_reset:${token}`;
+      const tokenHash = crypto.createHash('sha256').update(token).digest('hex');
+      const tokenKey = `password_reset:${tokenHash}`;
       const tokenDataStr = await redisClient.get(tokenKey);
 
       if (!tokenDataStr) {
@@ -1473,7 +1479,6 @@ This is an automated email from ${process.env.APP_NAME || 'Fintranzact'}
 
       const tokenData = JSON.parse(tokenDataStr);
 
-      // Check if token is expired
       if (Date.now() > tokenData.expiresAt) {
         await redisClient.del(tokenKey);
         return res.status(400).json({
@@ -1482,9 +1487,7 @@ This is an automated email from ${process.env.APP_NAME || 'Fintranzact'}
         });
       }
 
-      // Find user
       const user = await User.findByPk(tokenData.userId);
-
       if (!user) {
         await redisClient.del(tokenKey);
         return res.status(404).json({
@@ -1493,18 +1496,25 @@ This is an automated email from ${process.env.APP_NAME || 'Fintranzact'}
         });
       }
 
-      // Hash new password
-      const passwordHash = await bcrypt.hash(password, 10);
-
-      // Update user password
+      // Hash new password and persist.
+      const passwordHash = await bcrypt.hash(password, 12);
       await user.update({ password: passwordHash });
 
-      // Delete reset token
+      // Single-use: consume the reset token immediately.
       await redisClient.del(tokenKey);
+
+      // Revoke every active session for this user. If the password was
+      // reset because the account was compromised, any attacker still
+      // logged in is kicked out and forced to re-authenticate.
+      try {
+        await redisClient.deletePattern(`session:${user.id}:*`);
+      } catch (e) {
+        console.warn('Failed to revoke existing sessions after password reset:', e.message);
+      }
 
       return res.json({
         success: true,
-        message: 'Password has been reset successfully'
+        message: 'Password has been reset successfully. Please log in again.'
       });
     } catch (err) {
       console.error('Reset password error:', err);

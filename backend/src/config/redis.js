@@ -126,6 +126,39 @@ const redisWrapper = {
   isConnected() {
     return isConnected;
   },
+
+  /**
+   * Run a raw Redis command. Required by `rate-limit-redis` and any other
+   * library that needs to issue arbitrary commands against the underlying
+   * node-redis v4 client. Throws if Redis is not connected — callers are
+   * expected to check isConnected() first or handle the rejection.
+   */
+  async sendCommand(args) {
+    if (!redisClient || !isConnected) {
+      throw new Error('Redis not connected');
+    }
+    return redisClient.sendCommand(args);
+  },
+
+  /**
+   * Delete every key matching a pattern. Used to revoke all sessions for a
+   * given user (e.g. after a password reset). Uses SCAN under the hood so
+   * it does not block Redis on large keyspaces. Safe no-op when offline.
+   */
+  async deletePattern(pattern) {
+    if (!redisClient || !isConnected) return 0;
+    try {
+      let count = 0;
+      for await (const key of redisClient.scanIterator({ MATCH: pattern, COUNT: 200 })) {
+        await redisClient.del(key);
+        count += 1;
+      }
+      return count;
+    } catch (err) {
+      logger.warn('Redis deletePattern failed:', err.message);
+      return 0;
+    }
+  },
 };
 
 module.exports = redisWrapper;

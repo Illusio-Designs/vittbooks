@@ -11,6 +11,8 @@ const sanitizeInput = require('./middleware/sanitize');
 const { uploadDir } = require('./config/multer');
 const { decryptRequest, encryptResponse } = require('./middleware/payloadEncryption');
 const { corsConfig, validateOrigin } = require('./config/cors');
+const redisClient = require('./config/redis');
+const logger = require('./utils/logger');
 
 // Initialize passport configuration
 require('./config/passport');
@@ -29,17 +31,39 @@ app.use(helmet({
   contentSecurityPolicy: false, // Disable CSP for API
 }));
 
-// Rate limiting — global (light) limiter to slow obvious abuse.
+// Rate limiting — backed by Redis when available so that multiple backend
+// instances behind a load balancer share a single counter. Falls back to
+// the express-rate-limit default in-memory store if Redis is offline.
+function buildRateLimitStore(prefix) {
+  if (!redisClient || !redisClient.isConnected || !redisClient.isConnected()) {
+    return undefined; // use the library's in-memory MemoryStore
+  }
+  try {
+    const { RedisStore } = require('rate-limit-redis');
+    return new RedisStore({
+      // Adapter: rate-limit-redis expects a function that runs raw commands
+      // against the Redis client. node-redis v4 exposes sendCommand().
+      sendCommand: (...args) => redisClient.sendCommand(args),
+      prefix,
+    });
+  } catch (err) {
+    logger.warn(`[rate-limit] Falling back to in-memory store (${err.message})`);
+    return undefined;
+  }
+}
+
+// Global (light) limiter — slows obvious abuse.
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
   max: parseInt(process.env.RATE_LIMIT_MAX_REQUESTS) || 1000,
   message: 'Too many requests from this IP, please try again later.',
   standardHeaders: true,
   legacyHeaders: false,
+  store: buildRateLimitStore('rl:global:'),
 });
 app.use(limiter);
 
-// Stricter limiter on authentication endpoints — blunts credential stuffing
+// Tighter limiter on authentication endpoints — blunts credential stuffing
 // and brute force. Login + register + refresh + password reset share the bucket.
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
@@ -47,6 +71,7 @@ const authLimiter = rateLimit({
   message: 'Too many authentication attempts. Please wait a few minutes and try again.',
   standardHeaders: true,
   legacyHeaders: false,
+  store: buildRateLimitStore('rl:auth:'),
 });
 app.use('/api/auth/login', authLimiter);
 app.use('/api/auth/register', authLimiter);

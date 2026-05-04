@@ -52,30 +52,42 @@ if (GOOGLE_CLIENT_ID && GOOGLE_CLIENT_SECRET) {
             return done(new Error('No email found in Google profile'), null);
           }
 
-          // Normalize email
+          // Trust Google's "email_verified" claim. If Google itself has
+          // not verified ownership of the email address, an attacker
+          // could create a Google account for someone else's email and
+          // hijack the account here. Reject such logins outright.
+          const emailVerified =
+            (emails && emails[0] && emails[0].verified === true) ||
+            (profile._json && profile._json.email_verified === true) ||
+            (profile._json && profile._json.email_verified === 'true');
+          if (!emailVerified) {
+            logger.warn(`Google login rejected: email not verified (${email})`);
+            return done(new Error('Google email is not verified'), null);
+          }
+
           const normalizedEmail = email.toLowerCase().trim();
 
-          // Try to find user by google_id first
-          let user = await User.findOne({
-            where: { google_id: id },
-          });
+          // 1. Try to find by google_id (already linked).
+          let user = await User.findOne({ where: { google_id: id } });
 
-          // If not found, try to find by email
+          // 2. If not, look up by email — but DO NOT auto-link silently.
+          //    Auto-linking by matching email is the classic OAuth account
+          //    takeover: anyone able to register that email at Google could
+          //    take over an existing password-based account. Instead, we
+          //    refuse and ask the user to log in with their password and
+          //    link Google from settings (i.e. while authenticated).
           if (!user) {
-            user = await User.findOne({
-              where: { email: normalizedEmail },
-            });
-
-            // If user exists but doesn't have google_id, update it
-            if (user) {
-              user.google_id = id;
-              if (profileImage && !user.profile_image) {
-                user.profile_image = profileImage;
-              }
-              if (displayName && !user.name) {
-                user.name = displayName;
-              }
-              await user.save();
+            const existing = await User.findOne({ where: { email: normalizedEmail } });
+            if (existing) {
+              logger.warn(
+                `Google login refused — email ${normalizedEmail} already exists as a non-Google account`
+              );
+              return done(
+                new Error(
+                  'An account with this email already exists. Please sign in with your password and link Google from your profile settings.'
+                ),
+                null
+              );
             }
           }
 
