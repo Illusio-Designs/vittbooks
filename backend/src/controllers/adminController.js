@@ -798,49 +798,32 @@ module.exports = {
     try {
       const { id } = req.params;
 
-      // Find tenant
       const tenant = await TenantMaster.findByPk(id);
       if (!tenant) {
-        return res.status(404).json({ 
-          success: false,
-          message: 'Tenant not found' 
-        });
+        return res.status(404).json({ success: false, message: 'Tenant not found' });
       }
 
-      // Check if already provisioned
-      if (tenant.db_provisioned) {
-        return res.status(400).json({ 
-          success: false,
-          message: 'Tenant database is already provisioned' 
-        });
-      }
-
-      logger.info(`Starting database provisioning for tenant ${tenant.id} (${tenant.company_name})`);
-
-      // Decrypt database password
+      // Single-database mode: there is no per-tenant MySQL database to
+      // create. We just (re-)seed the per-tenant default rows in the
+      // shared DB and mark the tenant as provisioned.
       const tenantProvisioningService = require('../services/tenantProvisioningService');
-      const plainPassword = tenantProvisioningService.decryptPassword(tenant.db_password);
-
-      // Provision the database
-      await tenantProvisioningService.provisionDatabase(tenant, plainPassword);
-
-      // Reload tenant to get updated db_provisioned status
+      await tenantProvisioningService.provisionDatabase(tenant);
       await tenant.reload();
 
-      logger.info(`Database provisioned successfully for tenant ${tenant.id}`);
+      logger.info(`Tenant ${tenant.id} marked as provisioned (shared-DB mode)`);
 
-      res.json({ 
+      res.json({
         success: true,
-        message: 'Tenant database provisioned successfully',
+        message: 'Tenant ready (all tenants share the main database)',
         data: {
           tenant: {
             id: tenant.id,
             company_name: tenant.company_name,
             db_name: tenant.db_name,
             db_provisioned: tenant.db_provisioned,
-            db_provisioned_at: tenant.db_provisioned_at
-          }
-        }
+            db_provisioned_at: tenant.db_provisioned_at,
+          },
+        },
       });
     } catch (error) {
       logger.error('Admin provisionTenantDatabase error:', error);

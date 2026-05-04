@@ -170,29 +170,21 @@ module.exports = {
       }
 
       const tenantProvisioningService = require('../services/tenantProvisioningService');
-      const crypto = require('crypto');
 
-      const generateSecurePassword = (length = 20) => {
-        return crypto.randomBytes(length).toString('base64').slice(0, length);
-      };
+      // Single-database mode: every company shares the main database
+      // and is isolated by tenant_id / company_id columns. We no longer
+      // create a separate MySQL database per company.
+      const dbName = process.env.DB_NAME || 'finvera_main';
+      const dbUser = process.env.DB_USER || 'app';
 
-      const sanitizedCompanyName = company_name.toLowerCase().replace(/[^a-z0-9]/g, '_');
-      const dbNamePrefix = sanitizedCompanyName.substring(0, 30);
-      const dbName = tenantProvisioningService.generateDatabaseName(dbNamePrefix);
-      const dbUser = tenantProvisioningService.generateDatabaseUser(dbNamePrefix);
-
-      // Check if a company with the same database name already exists
+      // De-duplicate: only one company per (tenant, name) — old code
+      // used db_name to detect duplicates which is no longer meaningful.
       const existingCompany = await Company.findOne({
-        where: {
-          tenant_id: req.tenant_id,
-          db_name: dbName,
-        },
+        where: { tenant_id: req.tenant_id, company_name },
       });
 
       if (existingCompany) {
-        logger.info(`Company with database '${dbName}' already exists (ID: ${existingCompany.id}), updating existing company instead of creating new one`);
-        
-        // Update the existing company with new data
+        logger.info(`Company '${company_name}' already exists (ID: ${existingCompany.id}); updating it.`);
         await existingCompany.update({
           company_name,
           company_type,
@@ -218,34 +210,18 @@ module.exports = {
           is_active: true,
         });
 
-        // Ensure database is provisioned (in case it wasn't completed before)
+        // No DB provisioning in shared-DB mode — data already lives
+        // in the main database, scoped by tenant_id / company_id.
         if (!existingCompany.db_provisioned) {
-          try {
-            logger.info(`Ensuring database is provisioned for existing company: ${existingCompany.id}`);
-            const dbPassword = generateSecurePassword();
-            await tenantProvisioningService.provisionDatabase(existingCompany, dbPassword);
-            await existingCompany.reload();
-          } catch (provisionError) {
-            logger.error('Database provisioning failed for existing company:', provisionError);
-            return res.status(500).json({
-              success: false,
-              message: 'Failed to provision database for existing company. Please try again.',
-              error: provisionError.message,
-            });
-          }
+          await existingCompany.update({ db_provisioned: true, db_provisioned_at: new Date() });
         }
 
         return res.status(200).json({
           success: true,
           message: 'Company updated successfully',
-          data: {
-            company: existingCompany,
-            isUpdate: true,
-          },
+          data: { company: existingCompany, isUpdate: true },
         });
       }
-
-      const dbPassword = generateSecurePassword();
 
       const company = await Company.create({
         tenant_id: req.tenant_id,
@@ -271,38 +247,34 @@ module.exports = {
         books_beginning_date: books_beginning_date || null,
         bank_details: bank_details || null,
         compliance: compliance || null,
+        // Legacy DB connection columns are kept for backwards compatibility
+        // but are no longer used to open per-company connections.
         db_name: dbName,
         db_host: process.env.DB_HOST || 'localhost',
         db_port: parseInt(process.env.DB_PORT) || 3306,
         db_user: dbUser,
-        db_password: tenantProvisioningService.encryptPassword(dbPassword),
-        db_provisioned: false,
-        db_provisioned_at: null,
+        db_password: '',
+        db_provisioned: true,
+        db_provisioned_at: new Date(),
         is_active: true,
       });
 
-      // Create branches if provided
       if (planType === 'multi-branch' && branches && branches.length > 0) {
         const Branch = masterModels.Branch;
-        const branchData = branches.map(branch => ({
-            ...branch,
-            company_id: company.id,
+        const branchData = branches.map((branch) => ({
+          ...branch,
+          company_id: company.id,
         }));
         await Branch.bulkCreate(branchData);
       }
 
+      // Seed per-tenant default rows (numbering series, default ledgers,
+      // etc.) into the shared DB. No DDL.
       try {
-        logger.info(`Provisioning company database: tenant=${tenant.id}, company=${company.id}`);
-        await tenantProvisioningService.provisionDatabase(company, dbPassword);
-        await company.reload();
-      } catch (provisionError) {
-        logger.error('Database provisioning failed during company creation:', provisionError);
-        await company.destroy();
-        return res.status(500).json({
-          success: false,
-          message: 'Failed to create company: Database provisioning failed. Please try again.',
-          error: provisionError.message,
-        });
+        await tenantProvisioningService.provisionDatabase(company);
+      } catch (seedError) {
+        logger.warn('Failed to seed defaults for new company:', seedError.message);
+        // Don't roll the company creation back — the company itself is valid.
       }
 
       return res.status(201).json({ success: true, data: company });

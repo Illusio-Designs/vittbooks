@@ -37,24 +37,19 @@ class TenantProvisioningService {
     } = tenantData;
 
     try {
-      // Generate unique database name
-      const dbName = this.generateDatabaseName(subdomain);
-      
-      // Generate database credentials
-      const dbUser = this.generateDatabaseUser(subdomain);
-      const dbPassword = this.generateSecurePassword();
-      
-      // Determine acquisition category
-      let acquisitionCategory = 'organic'; // Default: direct from website
-      if (distributor_id) {
-        acquisitionCategory = 'distributor';
-      } else if (salesman_id) {
-        acquisitionCategory = 'salesman';
-      } else if (referred_by || referral_type) {
-        acquisitionCategory = 'referral';
-      }
+      // Single-database mode: there is no per-tenant MySQL database to
+      // create. We still keep the columns on tenant_master populated so
+      // any older code that reads them (or future migration to per-tenant
+      // DBs) keeps working — but db_password is left empty and
+      // db_provisioned is set to true immediately.
+      const dbName = process.env.DB_NAME || 'finvera_main';
+      const dbUser = process.env.DB_USER || 'app';
 
-      // Create tenant record in master database
+      let acquisitionCategory = 'organic';
+      if (distributor_id) acquisitionCategory = 'distributor';
+      else if (salesman_id) acquisitionCategory = 'salesman';
+      else if (referred_by || referral_type) acquisitionCategory = 'referral';
+
       const tenant = await TenantMaster.create({
         company_name,
         subdomain: subdomain.toLowerCase(),
@@ -78,24 +73,22 @@ class TenantProvisioningService {
         db_host: process.env.DB_HOST || 'localhost',
         db_port: parseInt(process.env.DB_PORT) || 3306,
         db_user: dbUser,
-        db_password: this.encryptPassword(dbPassword),
-        db_provisioned: false,
+        db_password: '',
+        db_provisioned: true,
+        db_provisioned_at: new Date(),
         is_trial: true,
         trial_ends_at: this.calculateTrialEnd(),
       });
 
-      // Provision the database
-      await this.provisionDatabase(tenant, dbPassword);
+      // Seed only the per-tenant default rows (numbering series, etc.)
+      // into the shared database. No DDL.
+      await this.provisionDatabase(tenant);
 
-      logger.info(`Tenant created successfully: ${tenant.id} (${subdomain})`);
+      logger.info(`Tenant created (shared-DB mode): ${tenant.id} (${subdomain})`);
 
       return {
         tenant,
-        credentials: {
-          dbName,
-          dbUser,
-          dbPassword, // Return plain password only during creation
-        },
+        credentials: { dbName, dbUser, dbPassword: null },
       };
     } catch (error) {
       logger.error('Failed to create tenant:', error);
@@ -104,11 +97,39 @@ class TenantProvisioningService {
   }
 
   /**
-   * Provision database for a tenant
-   * @param {Object} tenant - Tenant master record
-   * @param {string} plainPassword - Plain text database password
+   * Provision database for a tenant.
+   *
+   * Single-database mode: there is no per-tenant DB to create. We just
+   * mark the row as provisioned and seed the per-tenant default rows
+   * (numbering series, default ledgers, etc.) into the shared DB.
+   * The legacy implementation that created a fresh MySQL database +
+   * user + GRANTs is preserved below as `_legacyProvisionDatabase`
+   * for reference, but is no longer called.
    */
-  async provisionDatabase(tenant, plainPassword) {
+  async provisionDatabase(tenant, _plainPassword) {
+    try {
+      await this.initializeTenantSchema(tenant);
+      if (tenant && tenant.update && !tenant.db_provisioned) {
+        await tenant.update({
+          db_provisioned: true,
+          db_provisioned_at: new Date(),
+        });
+      }
+      logger.info(
+        `[PROVISION] Tenant ${tenant.id} marked provisioned in shared DB (no per-tenant database created).`
+      );
+    } catch (error) {
+      logger.error('[PROVISION] Failed to seed shared-DB defaults:', error.message);
+      throw error;
+    }
+  }
+
+  /**
+   * Legacy per-tenant provisioning (creates a separate MySQL database,
+   * user, and GRANTs privileges). Retained for reference and possible
+   * future migration; not called anywhere.
+   */
+  async _legacyProvisionDatabase(tenant, plainPassword) {
     // Get database credentials from environment
     // DB_USER on server is 'informative_fintranzact' (already exists, created by default)
     const dbUser = process.env.DB_USER || 'informative_fintranzact';
@@ -334,53 +355,19 @@ class TenantProvisioningService {
   }
 
   /**
-   * Initialize tenant database schema
-   * @param {Object} tenant - Tenant master record
-   * @param {string} plainPassword - Plain text database password
+   * Initialize the per-tenant default rows in the shared database.
+   * Tables already exist (created at app boot via dbSync); we only need
+   * to seed numbering series, default ledgers, etc. against the shared
+   * connection, scoped by the tenant's id.
    */
-  async initializeTenantSchema(tenant, plainPassword) {
-    const dbPassword = process.env.DB_PASSWORD !== undefined ? process.env.DB_PASSWORD : null;
-    const dbUser = process.env.DB_USER || 'informative_fintranzact';
-    
-    if (dbPassword === null) {
-      throw new Error('DB_PASSWORD environment variable must be set (can be empty string for no password)');
-    }
-
+  async initializeTenantSchema(tenant) {
     try {
-      const tenantConnection = await tenantConnectionManager.getConnection({
-        id: tenant.id,
-        db_name: tenant.db_name,
-        db_host: tenant.db_host,
-        db_port: tenant.db_port,
-        db_user: dbUser,
-        db_password: dbPassword,
-      });
-
-      await this.runTenantMigrations(tenantConnection);
-      await this.seedDefaultData(tenantConnection, tenant);
-      logger.info(`[SCHEMA] Schema initialized for ${tenant.db_name}`);
+      const sharedConnection = require('../config/database');
+      await this.seedDefaultData(sharedConnection, tenant);
+      logger.info(`[SCHEMA] Default rows seeded in shared DB for tenant ${tenant.id}`);
     } catch (error) {
-      logger.error(`[SCHEMA] ==========================================`);
-      logger.error(`[SCHEMA] SCHEMA INITIALIZATION FAILED`);
-      logger.error(`[SCHEMA] ==========================================`);
-      logger.error(`[SCHEMA] Error message: ${error.message}`);
-      logger.error(`[SCHEMA] Error code: ${error.code || 'N/A'}`);
-      logger.error(`[SCHEMA] Error errno: ${error.errno || 'N/A'}`);
-      logger.error(`[SCHEMA] Error SQL: ${error.sql || 'N/A'}`);
-      logger.error(`[SCHEMA] Error SQL State: ${error.sqlState || 'N/A'}`);
-      logger.error(`[SCHEMA] Database: ${tenant.db_name}`);
-      logger.error(`[SCHEMA] User: ${dbUser}`);
-      logger.error(`[SCHEMA] ==========================================`);
-      
-      // Create enhanced error with all details
-      const enhancedError = new Error(error.message);
-      enhancedError.code = error.code;
-      enhancedError.errno = error.errno;
-      enhancedError.sql = error.sql;
-      enhancedError.sqlState = error.sqlState;
-      enhancedError.original = error.original;
-      enhancedError.stack = error.stack;
-      throw enhancedError;
+      logger.error('[SCHEMA] Failed to seed defaults for tenant:', error.message);
+      throw error;
     }
   }
 

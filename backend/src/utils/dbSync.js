@@ -18,14 +18,24 @@ async function syncDatabase() {
     // Run migrations for main database (admin/main DB tables)
     await runMainMigrations();
 
+    // Single-database mode: register the tenant transactional models on
+    // the main connection so that sync() creates / updates their tables.
+    // Data is isolated at the row level via tenant_id / company_id.
+    try {
+      require('../services/tenantModels')(sequelize);
+      logger.info('  ✓ Tenant transactional models registered on shared connection');
+    } catch (regErr) {
+      logger.warn('  ⚠️  Failed to register tenant models on shared connection: ' + regErr.message);
+    }
+
     // Sync models with alter: true (will alter existing tables to match models)
     // This is safer than force: true which drops tables
     // Use alter: false in production to avoid memory issues during startup
     try {
-      const syncOptions = process.env.NODE_ENV === 'production' 
+      const syncOptions = process.env.NODE_ENV === 'production'
         ? { alter: false } // Skip alter in production to save memory
         : { alter: true };
-      
+
       await sequelize.sync(syncOptions);
     } catch (syncError) {
       // Handle specific MySQL errors that shouldn't block startup

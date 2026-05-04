@@ -13,6 +13,51 @@ Every item is tagged with one of:
 
 ---
 
+## 0. Big architecture change: one shared database for all tenants
+
+**Before.** Each tenant (and each company inside a tenant) had its own
+MySQL database. The app tracked credentials per row in `tenant_master`
+and `companies`, opened a separate connection per tenant on demand,
+and provisioned a new database whenever someone signed up or created
+a company. This was operationally heavy and added a class of bugs
+around "wrong tenant got connected".
+
+**Now.** All tenants live in **one shared database** — the main
+application database. Their data is kept apart by **`tenant_id` and
+`company_id` columns** on every transactional model (vouchers,
+ledgers, inventory items, stock movements, e-invoices, e-way bills,
+TDS, audit logs — every model in `src/services/tenantModels.js`
+already has these columns).
+
+What this means in practice:
+
+- Sign-up no longer creates a new MySQL database. The new tenant row
+  is just inserted into the shared DB and immediately marked
+  `db_provisioned = true`.
+- Creating a company no longer creates a new MySQL database either.
+- The "tenant connection manager" is now a thin shim that always
+  returns the main connection. Existing callers
+  (`req.tenantDb`, `req.tenantModels`) keep working unchanged.
+- The old per-tenant provisioning code is preserved as
+  `tenantProvisioningService._legacyProvisionDatabase` in case you
+  ever need to migrate back.
+- Per-tenant DB host/port/user/password fields on `tenant_master` and
+  `companies` still exist on the schema but are no longer used at
+  runtime. They can be dropped in a future migration.
+
+**Things you must verify.**
+
+- Every controller that reads tenant data uses a `where` clause that
+  includes the caller's `tenant_id` (and where appropriate
+  `company_id`). Without it, tenants would see each other's rows.
+  This is the single most important thing to audit now that everyone
+  shares a database. See item 3.4.
+- The shared DB needs indexes on `(tenant_id, …)` for query speed.
+  Most models in `tenantModels.js` already declare them; verify each
+  one has at least `tenant_id` indexed.
+
+---
+
 ## 1. Secrets and configuration
 
 ### 1.1 ✅ App used to start even when secrets were missing
@@ -158,24 +203,19 @@ proxy, they could spoof the subdomain.
 with the configured `MAIN_DOMAIN`. Anything else falls through to
 JWT-based resolution and is logged as suspicious.
 
-### 3.3 ✅ Backend won't connect to a "rogue" database
+### 3.3 ✅ Backend never connects to a per-tenant database
 
-**The problem.** Each tenant row stored its own `db_host`, `db_port`,
-`db_user`. If a row was ever tampered with (or a future bug let a
-tenant write to it), the backend would happily connect to the
-attacker-supplied MySQL server with the configured backend creds —
-leaking them in the handshake.
+We've moved to a **single shared database** for all tenants. The
+backend always uses the configured main DB connection, and tenant
+isolation is enforced row-by-row via the `tenant_id` and `company_id`
+columns on every transactional model. The previous risk — a tampered
+tenant row tricking the backend into connecting to an attacker MySQL
+server — no longer applies because per-tenant connection details are
+ignored entirely.
 
-**What we did.** Added an allowlist check in `src/middleware/tenant.js`.
-Before opening a tenant DB connection, the host must appear in
-`ALLOWED_DB_HOSTS` (or, by default, in `DB_HOST`). Unknown hosts now
-trigger an HTTP 500 instead of a connection.
-
-To run tenants on multiple DB servers, set:
-
-```
-ALLOWED_DB_HOSTS=db1.internal,db2.internal,db3.internal
-```
+If you ever need to go back to per-tenant databases, the legacy
+implementation lives at
+`tenantProvisioningService._legacyProvisionDatabase`.
 
 ### 3.4 ⚠️ Audit every "find by id" for tenant scoping
 
@@ -555,7 +595,7 @@ Cron jobs should be safe to run twice. Use unique business keys, not
 | `ENCRYPTION_KEY` | **Yes** | ≥ 16 chars. Used for tenant DB password encryption. |
 | `PAYLOAD_ENCRYPTION_KEY` | **Yes** | ≥ 16 chars. Must match the frontend. |
 | `DATABASE_URL` *or* `DB_HOST`+`DB_USER` | **Yes** | One of the two. |
-| `ALLOWED_DB_HOSTS` | Optional | Comma-separated allowlist for tenant DB hosts. Defaults to `DB_HOST`. |
+| `ALLOWED_DB_HOSTS` | Deprecated | Used to allowlist per-tenant DB hosts. Single-DB mode no longer reads this. |
 | `MAIN_DOMAIN` | Recommended | Used for CORS + Host validation + subdomain tenant lookup. |
 | `CORS_ORIGIN` | Optional | Extra explicit origins (comma-separated). |
 | `JSON_BODY_LIMIT` | Optional | Default `1mb`. Raise per-route if a specific endpoint needs more. |

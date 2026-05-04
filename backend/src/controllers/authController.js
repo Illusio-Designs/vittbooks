@@ -191,7 +191,9 @@ module.exports = {
           subscription_plan: 'trial',
           acquisition_category: 'organic',
           is_active: true,
-          db_provisioned: false,
+          // Shared-DB mode: a fresh tenant is immediately ready to use.
+          db_provisioned: true,
+          db_provisioned_at: new Date(),
         });
       } catch (createError) {
         console.error('ERROR: Failed to create tenant in database:', createError);
