@@ -47,8 +47,19 @@ const handleApiError = (error, context = '') => {
         throw new Error(`Resource not found: ${message}`);
       case 409:
         throw new Error(`Conflict: ${message}`);
+      case 413:
+        throw new Error('Request too large. The server limits payloads to 1 MB.');
+      case 429:
+        // Backend's auth limiter (15-min window) hits this most often.
+        throw new Error(
+          message || 'Too many attempts. Please wait a few minutes and try again.'
+        );
       case 500:
         throw new Error(`Server error: ${message}`);
+      case 502:
+      case 503:
+      case 504:
+        throw new Error('Service temporarily unavailable. Please try again in a moment.');
       default:
         throw new Error(`API Error (${status}): ${message}`);
     }

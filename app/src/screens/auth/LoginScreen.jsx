@@ -325,8 +325,11 @@ export default function LoginScreen() {
   const handleGoogleLogin = async () => {
     try {
       const apiUrl = API_CONFIG.BASE_URL;
-      // Add state=mobile parameter to indicate this is a mobile request
-      const googleAuthUrl = `${apiUrl}/api/auth/google?state=mobile`;
+      // Pass `platform=mobile` so the backend can pick the mobile redirect
+      // URI on completion. The backend's `state` query parameter is now
+      // reserved for the OAuth CSRF token, so we no longer reuse it for
+      // platform detection.
+      const googleAuthUrl = `${apiUrl}/api/auth/google?platform=mobile`;
       
       // Open Google OAuth in browser
       const supported = await Linking.canOpenURL(googleAuthUrl);

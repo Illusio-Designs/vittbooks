@@ -30,8 +30,13 @@ export const API_CONFIG = {
 };
 
 // Security Configuration
+//
+// IMPORTANT: there is no default for the encryption key. If
+// EXPO_PUBLIC_PAYLOAD_ENCRYPTION_KEY is missing the value is empty
+// and any code that needs it will fail loudly rather than silently
+// using a guessable placeholder.
 export const SECURITY_CONFIG = {
-  ENCRYPTION_KEY: getEnvVar('EXPO_PUBLIC_PAYLOAD_ENCRYPTION_KEY', 'fintranzact-default-encryption-key'),
+  ENCRYPTION_KEY: getEnvVar('EXPO_PUBLIC_PAYLOAD_ENCRYPTION_KEY', ''),
   ENABLE_BIOMETRIC_AUTH: getEnvVar('EXPO_PUBLIC_ENABLE_BIOMETRIC_AUTH', 'true') === 'true',
 };
 
@@ -163,8 +168,16 @@ export const validateConfig = () => {
     errors.push('API_URL is required');
   }
   
-  if (!SECURITY_CONFIG.ENCRYPTION_KEY || SECURITY_CONFIG.ENCRYPTION_KEY === 'finvera-default-encryption-key') {
-    console.warn('⚠️  Using default encryption key. Please set EXPO_PUBLIC_PAYLOAD_ENCRYPTION_KEY in production.');
+  if (!SECURITY_CONFIG.ENCRYPTION_KEY) {
+    if (isProduction()) {
+      errors.push(
+        'EXPO_PUBLIC_PAYLOAD_ENCRYPTION_KEY is required in production and must match the backend.'
+      );
+    } else {
+      console.warn(
+        '⚠️  EXPO_PUBLIC_PAYLOAD_ENCRYPTION_KEY is not set. Encrypted requests will fail until you set it.'
+      );
+    }
   }
   
   if (isProduction() && FEATURE_FLAGS.ENABLE_DEBUG_MODE) {
