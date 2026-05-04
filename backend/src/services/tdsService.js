@@ -1490,15 +1490,18 @@ class TDSService {
    * @param {string} groupCode - Account group code prefix
    * @returns {Promise<string>} Generated ledger code
    */
-  async generateLedgerCode(tenantModels, groupCode) {
-    const lastLedger = await tenantModels.Ledger.findOne({
-      where: {
+  async generateLedgerCode(tenantModels, groupCode, tenantId) {
+    const { findOneScoped } = require('../utils/scopedQueries');
+    const lastLedger = await findOneScoped(
+      { tenant_id: tenantId },
+      tenantModels.Ledger,
+      {
         ledger_code: {
           [require('sequelize').Op.like]: `${groupCode}%`,
         },
       },
-      order: [['ledger_code', 'DESC']],
-    });
+      { order: [['ledger_code', 'DESC']] }
+    );
 
     if (lastLedger && lastLedger.ledger_code) {
       const lastNumber = parseInt(lastLedger.ledger_code.replace(groupCode, '')) || 0;
@@ -1550,9 +1553,14 @@ class TDSService {
    * @param {string} companyId - Company ID
    * @returns {Promise<Object>} Company TDS/TCS config
    */
-  async getCompanyTDSTCSConfig(masterModels, companyId) {
+  async getCompanyTDSTCSConfig(masterModels, companyId, tenantId) {
     try {
-      const company = await masterModels.Company.findByPk(companyId, {
+      // Tenant-scoped lookup: a caller cannot read another tenant's company
+      // even if they guess the companyId.
+      const where = { id: companyId };
+      if (tenantId) where.tenant_id = tenantId;
+      const company = await masterModels.Company.findOne({
+        where,
         attributes: ['id', 'company_name', 'is_tds_enabled', 'is_tcs_enabled'],
       });
 

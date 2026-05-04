@@ -1,5 +1,6 @@
 const pdfService = require('../services/pdfService');
 const logger = require('../utils/logger');
+const { findByIdScoped } = require('../utils/scopedQueries');
 
 // Helper function to format numbers
 const formatNumber = (num) => {
@@ -370,7 +371,7 @@ module.exports = {
       const { voucherId } = req.params;
 
       // Fetch voucher with all related data
-      const voucher = await req.tenantModels.Voucher.findByPk(voucherId, {
+      const voucher = await findByIdScoped(req, req.tenantModels.Voucher, voucherId, {
         include: [
           {
             model: req.tenantModels.Ledger,

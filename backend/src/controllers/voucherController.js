@@ -6,14 +6,16 @@ const {
   generateLedgerEntriesByType,
   updateLedgerBalance
 } = require('../services/voucherPostingService');
-const { findByIdScoped } = require('../utils/scopedQueries');
+const { findByIdScoped, findOneScoped } = require('../utils/scopedQueries');
 
 function toNum(v, fallback = 0) {
   const n = parseFloat(v);
   return Number.isFinite(n) ? n : fallback;
 }
 
-async function applyPurchaseInventory({ tenantModels }, voucher, voucherItems, t) {
+async function applyPurchaseInventory({ tenantModels, tenant_id, company_id }, voucher, voucherItems, t) {
+  // Synthesize a req-like ctx for scoped helpers (this function is not always called with req).
+  const ctx = { tenant_id: tenant_id || voucher.tenant_id, company_id: company_id || voucher.company_id || null };
   logger.info(`Applying purchase inventory for voucher ${voucher.id} with ${voucherItems.length} items`);
   
   // Check if barcode functionality is enabled for this tenant
@@ -66,10 +68,7 @@ async function applyPurchaseInventory({ tenantModels }, voucher, voucherItems, t
           
           if (generatedBarcode) {
             // Check uniqueness
-            const existingBarcode = await tenantModels.InventoryItem.findOne({
-              where: { barcode: generatedBarcode },
-              transaction: t,
-            });
+            const existingBarcode = await findOneScoped(ctx, tenantModels.InventoryItem, { barcode: generatedBarcode }, { transaction: t });
             
             if (!existingBarcode) {
               await inv.update({ barcode: generatedBarcode }, { transaction: t });
@@ -115,8 +114,8 @@ async function applyPurchaseInventory({ tenantModels }, voucher, voucherItems, t
             
             // Check uniqueness in both InventoryItem and InventoryUnit
             const [existingItem, existingUnit] = await Promise.all([
-              tenantModels.InventoryItem.findOne({ where: { barcode: unitBarcode }, transaction: t }),
-              tenantModels.InventoryUnit.findOne({ where: { unit_barcode: unitBarcode }, transaction: t }),
+              findOneScoped(ctx, tenantModels.InventoryItem, { barcode: unitBarcode }, { transaction: t }),
+              findOneScoped(ctx, tenantModels.InventoryUnit, { unit_barcode: unitBarcode }, { transaction: t }),
             ]);
             
             if (existingItem || existingUnit) {
@@ -252,7 +251,7 @@ async function applyInventoryUpdatesHelper(req, voucher, transaction) {
   try {
     if (voucherType === 'purchase' || voucherType === 'purchase_invoice') {
       logger.info(`Applying purchase inventory updates for voucher ${voucher.voucher_number}`);
-      await applyPurchaseInventory({ tenantModels: req.tenantModels }, voucher, voucherItems, transaction);
+      await applyPurchaseInventory({ tenantModels: req.tenantModels, tenant_id: req.tenant_id, company_id: req.company_id }, voucher, voucherItems, transaction);
     } else if (voucherType === 'sales' || voucherType === 'sales_invoice') {
       logger.info(`Applying simplified sales inventory updates for voucher ${voucher.voucher_number}`);
       await applySalesInventoryAndGetCogs({ tenantModels: req.tenantModels }, voucher, voucherItems, transaction);
@@ -417,11 +416,7 @@ module.exports = {
         const month = String(date.getMonth() + 1).padStart(2, '0');
         
         // Get the next sequence number for this voucher type
-        const lastVoucher = await req.tenantModels.Voucher.findOne({
-          where: {
-            voucher_type: voucherType,
-            tenant_id: req.tenant_id,
-          },
+        const lastVoucher = await findOneScoped(req, req.tenantModels.Voucher, { voucher_type: voucherType }, {
           order: [['createdAt', 'DESC']],
           transaction,
         });
@@ -496,7 +491,7 @@ module.exports = {
             console.log('💰 Updating ledger balances...');
             const uniqueLedgerIds = [...new Set(autoLedgerEntries.map(entry => entry.ledger_id))];
             for (const ledgerId of uniqueLedgerIds) {
-              await updateLedgerBalance(req.tenantModels, ledgerId, transaction);
+              await updateLedgerBalance(req.tenantModels, ledgerId, transaction, req.tenant_id);
             }
             console.log('✅ Ledger balances updated successfully');
           }
@@ -525,7 +520,7 @@ module.exports = {
             console.log('💰 Updating ledger balances...');
             const uniqueLedgerIds = [...new Set(autoLedgerEntries.map(entry => entry.ledger_id))];
             for (const ledgerId of uniqueLedgerIds) {
-              await updateLedgerBalance(req.tenantModels, ledgerId, transaction);
+              await updateLedgerBalance(req.tenantModels, ledgerId, transaction, req.tenant_id);
             }
             console.log('✅ Ledger balances updated successfully');
           }
@@ -549,7 +544,7 @@ module.exports = {
         console.log('💰 Updating ledger balances...');
         const uniqueLedgerIds = [...new Set(ledgerEntries.map(entry => entry.ledger_id))];
         for (const ledgerId of uniqueLedgerIds) {
-          await updateLedgerBalance(req.tenantModels, ledgerId, transaction);
+          await updateLedgerBalance(req.tenantModels, ledgerId, transaction, req.tenant_id);
         }
         console.log('✅ Ledger balances updated successfully');
       }
@@ -558,7 +553,7 @@ module.exports = {
       if (req.body.status === 'posted') {
         console.log('🏭 Applying inventory updates for posted voucher...');
         // Reload voucher with items to ensure they're available for inventory updates
-        const voucherWithItems = await req.tenantModels.Voucher.findByPk(voucher.id, {
+        const voucherWithItems = await findByIdScoped(req, req.tenantModels.Voucher, voucher.id, {
           include: [{ model: req.tenantModels.VoucherItem, as: 'items' }],
           transaction
         });
@@ -570,7 +565,7 @@ module.exports = {
       console.log('✅ Transaction committed successfully');
       
       // Fetch the complete voucher with items and ledger entries
-      const completeVoucher = await req.tenantModels.Voucher.findByPk(voucher.id, {
+      const completeVoucher = await findByIdScoped(req, req.tenantModels.Voucher, voucher.id, {
         include: [
           { model: req.tenantModels.Ledger, as: 'partyLedger', attributes: ['id', 'ledger_name'] },
           { model: req.tenantModels.VoucherItem, as: 'items' },
@@ -686,7 +681,7 @@ module.exports = {
       
       const uniqueLedgerIds = [...new Set(ledgerEntries.map(entry => entry.ledger_id))];
       for (const ledgerId of uniqueLedgerIds) {
-        await updateLedgerBalance(req.tenantModels, ledgerId, transaction);
+        await updateLedgerBalance(req.tenantModels, ledgerId, transaction, req.tenant_id);
       }
       console.log('✅ Ledger balances updated for posted voucher');
       
@@ -714,7 +709,7 @@ module.exports = {
     try {
       if (voucherType === 'purchase' || voucherType === 'purchase_invoice') {
         logger.info(`Applying purchase inventory updates for voucher ${voucher.voucher_number}`);
-        await applyPurchaseInventory({ tenantModels: req.tenantModels }, voucher, voucherItems, transaction);
+        await applyPurchaseInventory({ tenantModels: req.tenantModels, tenant_id: req.tenant_id, company_id: req.company_id }, voucher, voucherItems, transaction);
       } else if (voucherType === 'sales' || voucherType === 'sales_invoice') {
         logger.info(`Applying simplified sales inventory updates for voucher ${voucher.voucher_number}`);
         await applySalesInventoryAndGetCogs({ tenantModels: req.tenantModels }, voucher, voucherItems, transaction);
@@ -760,7 +755,7 @@ module.exports = {
       // Update ledger balances for affected ledgers
       console.log('💰 Updating ledger balances after cancellation...');
       for (const ledgerId of affectedLedgerIds) {
-        await updateLedgerBalance(req.tenantModels, ledgerId, transaction);
+        await updateLedgerBalance(req.tenantModels, ledgerId, transaction, req.tenant_id);
       }
       console.log('✅ Ledger balances updated after cancellation');
       
@@ -915,7 +910,7 @@ module.exports = {
       // Update ledger balances for affected ledgers
       console.log('💰 Updating ledger balances after deletion...');
       for (const ledgerId of affectedLedgerIds) {
-        await updateLedgerBalance(req.tenantModels, ledgerId, transaction);
+        await updateLedgerBalance(req.tenantModels, ledgerId, transaction, req.tenant_id);
       }
       console.log('✅ Ledger balances updated after deletion');
       

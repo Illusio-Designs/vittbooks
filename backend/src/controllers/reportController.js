@@ -182,7 +182,9 @@ module.exports = {
         {
           ledgerId: ledger_id,
           fromDate,
-          toDate
+          toDate,
+          tenant_id: req.tenant_id,
+          company_id: req.company_id,
         }
       );
 

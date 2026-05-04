@@ -903,16 +903,22 @@ async function getCOGSAnalysis(tenantModels) {
  */
 async function generateLedgerStatementReport(tenantModels, masterModels, options = {}) {
   try {
-    const { ledgerId, fromDate, toDate } = options;
-    
+    const { ledgerId, fromDate, toDate, tenant_id, company_id } = options;
+
     if (!ledgerId) {
       throw new Error('ledger_id is required for ledger statement');
     }
-    
+
     logger.info(`Generating Ledger Statement for ledger ${ledgerId} from ${fromDate} to ${toDate}`);
-    
-    // Get ledger details
-    const ledger = await tenantModels.Ledger.findByPk(ledgerId);
+
+    // Tenant-scoped lookup so a caller cannot read another tenant's ledger
+    // by guessing its UUID.
+    const { findByIdScoped } = require('../utils/scopedQueries');
+    const ledger = await findByIdScoped(
+      { tenant_id, company_id: company_id || null },
+      tenantModels.Ledger,
+      ledgerId
+    );
     if (!ledger) {
       throw new Error('Ledger not found');
     }

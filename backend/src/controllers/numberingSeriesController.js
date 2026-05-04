@@ -9,6 +9,7 @@
 
 const NumberingService = require('../services/numberingService');
 const logger = require('../utils/logger');
+const { findByIdScoped } = require('../utils/scopedQueries');
 
 /**
  * List all numbering series for the tenant
@@ -54,12 +55,7 @@ exports.getById = async (req, res) => {
     const { id } = req.params;
     const { tenant_id } = req;
 
-    const series = await req.tenantModels.NumberingSeries.findOne({
-      where: {
-        id,
-        tenant_id
-      }
-    });
+    const series = await findByIdScoped(req, req.tenantModels.NumberingSeries, id);
 
     if (!series) {
       return res.status(404).json({
@@ -150,12 +146,7 @@ exports.update = async (req, res) => {
     NumberingService.setContext({ tenantModels: req.tenantModels });
 
     // Verify series belongs to tenant
-    const existingSeries = await req.tenantModels.NumberingSeries.findOne({
-      where: {
-        id,
-        tenant_id
-      }
-    });
+    const existingSeries = await findByIdScoped(req, req.tenantModels.NumberingSeries, id);
 
     if (!existingSeries) {
       return res.status(404).json({
@@ -207,12 +198,7 @@ exports.setDefault = async (req, res) => {
     NumberingService.setContext({ tenantModels: req.tenantModels });
 
     // Verify series belongs to tenant
-    const existingSeries = await req.tenantModels.NumberingSeries.findOne({
-      where: {
-        id,
-        tenant_id
-      }
-    });
+    const existingSeries = await findByIdScoped(req, req.tenantModels.NumberingSeries, id);
 
     if (!existingSeries) {
       return res.status(404).json({
@@ -254,12 +240,7 @@ exports.preview = async (req, res) => {
     NumberingService.setContext({ tenantModels: req.tenantModels });
 
     // Verify series belongs to tenant
-    const existingSeries = await req.tenantModels.NumberingSeries.findOne({
-      where: {
-        id,
-        tenant_id
-      }
-    });
+    const existingSeries = await findByIdScoped(req, req.tenantModels.NumberingSeries, id);
 
     if (!existingSeries) {
       return res.status(404).json({
@@ -299,12 +280,7 @@ exports.delete = async (req, res) => {
     const { tenant_id } = req;
 
     // Verify series belongs to tenant
-    const series = await req.tenantModels.NumberingSeries.findOne({
-      where: {
-        id,
-        tenant_id
-      }
-    });
+    const series = await findByIdScoped(req, req.tenantModels.NumberingSeries, id);
 
     if (!series) {
       return res.status(404).json({

@@ -1,6 +1,7 @@
 const tallyImportService = require('../services/tallyImportService');
 const logger = require('../utils/logger');
 const path = require('path');
+const { findOneScoped } = require('../utils/scopedQueries');
 
 /**
  * Tally Import Controller
@@ -128,9 +129,7 @@ module.exports = {
             }
 
             // Check if ledger exists
-            const existingLedger = await tenantModels.Ledger.findOne({
-              where: { ledger_name: ledger.name },
-            });
+            const existingLedger = await findOneScoped(req, tenantModels.Ledger, { ledger_name: ledger.name });
 
             if (!existingLedger) {
               // Determine balance type based on account group nature and opening balance sign
@@ -206,9 +205,7 @@ module.exports = {
       if (importOptions.importStockItems !== false && parsedData.stockItems.length > 0) {
         for (const item of parsedData.stockItems) {
           try {
-            const existingItem = await tenantModels.InventoryItem.findOne({
-              where: { item_name: item.name },
-            });
+            const existingItem = await findOneScoped(req, tenantModels.InventoryItem, { item_name: item.name });
 
             if (!existingItem) {
               await tenantModels.InventoryItem.create({
@@ -258,16 +255,12 @@ module.exports = {
             // Find party ledger if specified
             let partyLedgerId = null;
             if (voucher.party) {
-              const partyLedger = await tenantModels.Ledger.findOne({
-                where: { ledger_name: voucher.party },
-              });
+              const partyLedger = await findOneScoped(req, tenantModels.Ledger, { ledger_name: voucher.party });
               if (partyLedger) partyLedgerId = partyLedger.id;
             }
 
             // Check if voucher already exists
-            const existingVoucher = await tenantModels.Voucher.findOne({
-              where: { voucher_number: voucher.number },
-            });
+            const existingVoucher = await findOneScoped(req, tenantModels.Voucher, { voucher_number: voucher.number });
 
             if (!existingVoucher) {
               await tenantModels.Voucher.create({

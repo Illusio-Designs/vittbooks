@@ -23,9 +23,15 @@ async function getOrCreateSystemLedger({ tenantModels, masterModels, tenant_id }
     throw new Error('tenant_id is required for creating system ledgers');
   }
 
+  const { findOneScoped } = require('../utils/scopedQueries');
+  const ctx = { tenant_id };
   const existing =
-    (ledgerCode ? await tenantModels.Ledger.findOne({ where: { ledger_code: ledgerCode }, transaction }) : null) ||
-    (ledgerName ? await tenantModels.Ledger.findOne({ where: { ledger_name: ledgerName }, transaction }) : null);
+    (ledgerCode
+      ? await findOneScoped(ctx, tenantModels.Ledger, { ledger_code: ledgerCode }, { transaction })
+      : null) ||
+    (ledgerName
+      ? await findOneScoped(ctx, tenantModels.Ledger, { ledger_name: ledgerName }, { transaction })
+      : null);
 
   if (existing) return existing;
 
@@ -124,7 +130,13 @@ async function generateSalesInvoiceEntries(tenantModels, masterModels, voucher, 
   let totalCOGS = 0;
   for (const item of items) {
     if (item.inventory_item_id) {
-      const inventoryItem = await tenantModels.InventoryItem.findByPk(item.inventory_item_id, { transaction });
+      const { findByIdScoped } = require('../utils/scopedQueries');
+      const inventoryItem = await findByIdScoped(
+        { tenant_id: voucher.tenant_id, company_id: voucher.company_id || null },
+        tenantModels.InventoryItem,
+        item.inventory_item_id,
+        { transaction }
+      );
       if (inventoryItem) {
         const cost = parseFloat(inventoryItem.avg_cost || inventoryItem.purchase_price || 0);
         const quantity = parseFloat(item.quantity || 0);
@@ -669,11 +681,29 @@ async function findLedger(tenantModels, tenantId, patterns, transaction) {
 }
 
 /**
- * Update ledger balance based on ledger entries
+ * Update ledger balance based on ledger entries.
+ *
+ * `tenantId` is required for tenant-scoped lookup; older callers that
+ * don't pass it fall back to the legacy unscoped behaviour and emit a
+ * deprecation warning. New code MUST pass tenantId.
  */
-async function updateLedgerBalance(tenantModels, ledgerId, transaction) {
+async function updateLedgerBalance(tenantModels, ledgerId, transaction, tenantId) {
   try {
-    const ledger = await tenantModels.Ledger.findByPk(ledgerId, { transaction });
+    const { findByIdScoped } = require('../utils/scopedQueries');
+    let ledger;
+    if (tenantId) {
+      ledger = await findByIdScoped(
+        { tenant_id: tenantId },
+        tenantModels.Ledger,
+        ledgerId,
+        { transaction }
+      );
+    } else {
+      logger.warn(
+        `updateLedgerBalance called without tenantId for ledger ${ledgerId} — caller should pass req.tenant_id`
+      );
+      ledger = await tenantModels.Ledger.findByPk(ledgerId, { transaction });
+    }
     if (!ledger) {
       logger.warn(`Ledger not found: ${ledgerId}`);
       return;
@@ -681,7 +711,7 @@ async function updateLedgerBalance(tenantModels, ledgerId, transaction) {
 
     // Calculate total debits and credits from ledger entries
     const entries = await tenantModels.VoucherLedgerEntry.findAll({
-      where: { ledger_id: ledgerId },
+      where: { ledger_id: ledgerId, ...(tenantId ? { tenant_id: tenantId } : {}) },
       attributes: [
         [tenantModels.sequelize.fn('SUM', tenantModels.sequelize.col('debit_amount')), 'total_debit'],
         [tenantModels.sequelize.fn('SUM', tenantModels.sequelize.col('credit_amount')), 'total_credit']

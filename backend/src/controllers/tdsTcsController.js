@@ -52,7 +52,7 @@ module.exports = {
         });
       }
       
-      const config = await tdsService.getCompanyTDSTCSConfig(req.masterModels, companyId);
+      const config = await tdsService.getCompanyTDSTCSConfig(req.masterModels, companyId, req.tenant_id);
       res.json({ success: true, data: config });
     } catch (error) {
       logger.error('Get company TDS/TCS config error:', error);

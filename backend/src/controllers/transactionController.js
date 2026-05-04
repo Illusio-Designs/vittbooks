@@ -1,5 +1,6 @@
 const voucherService = require('../services/voucherService');
 const voucherController = require('./voucherController');
+const { findByIdScoped } = require('../utils/scopedQueries');
 
 module.exports = {
   /**
@@ -230,14 +231,14 @@ module.exports = {
       const { tenantModels, masterModels } = req;
       
       const [fromLedger, toLedger] = await Promise.all([
-        tenantModels.Ledger.findByPk(from_ledger_id, {
+        findByIdScoped(req, tenantModels.Ledger, from_ledger_id, {
           include: [{
             model: masterModels.AccountGroup,
             as: 'accountGroup',
             attributes: ['id', 'name', 'group_code'],
           }],
         }),
-        tenantModels.Ledger.findByPk(to_ledger_id, {
+        findByIdScoped(req, tenantModels.Ledger, to_ledger_id, {
           include: [{
             model: masterModels.AccountGroup,
             as: 'accountGroup',

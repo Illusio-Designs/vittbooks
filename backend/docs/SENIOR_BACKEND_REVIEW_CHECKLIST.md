@@ -332,23 +332,108 @@ If you ever need to go back to per-tenant databases, the legacy
 implementation lives at
 `tenantProvisioningService._legacyProvisionDatabase`.
 
-### 3.4 ⚠️ Audit every "find by id" for tenant scoping
+### 3.4 ✅ Every "find by id" is now tenant-scoped
 
-This is the kind of bug a search-and-replace can't safely do. Every
-controller that does `Model.findByPk(id)` or
-`Model.findOne({ where: { id } })` must also include the caller's
-`tenant_id` / `company_id` in the `where` clause — otherwise user A
-can read user B's records by guessing ids.
+**The problem.** After the move to a single shared database, every
+read or write of a tenant-owned record needs `tenant_id` in its
+`where` clause. Without that filter, user A could read user B's
+records by guessing the primary key (classic IDOR).
 
-Search command:
+**The audit.** A thorough scan over `backend/src/controllers` and
+`backend/src/services` turned up **341 `findByPk` / `findOne` call
+sites**, of which **63** were unsafe — they queried tenant-owned
+models without the tenant filter. The rest were either already
+scoped, lookups on global/admin models (no tenant filter required),
+or lookups by globally-unique fields (defense-in-depth only).
+
+**What we did.**
+
+1. **Helper.** Added `backend/src/utils/scopedQueries.js` exporting
+   `findByIdScoped(req, Model, id, options?)`,
+   `findOneScoped(req, Model, where, options?)`,
+   `findAllScoped(req, Model, where, options?)`, and `scopeWhere`.
+   The helper:
+   - Always merges in `tenant_id` from the caller (`req.tenant_id`).
+   - Also merges in `company_id` if and only if the model declares
+     a `company_id` column (`Model.rawAttributes.company_id`), so it
+     does not break models that don't have one.
+   - Forwards through `transaction`, `include`, `attributes`, etc.
+
+2. **Patched call sites in controllers.**
+   - `inventoryController.js` (15 sites)
+   - `ledgerController.js` (6)
+   - `warehouseController.js` (5)
+   - `voucherController.js` (10, including helper-call updates so
+     `updateLedgerBalance` receives `req.tenant_id`)
+   - `attributeController.js` (4)
+   - `gstController.js` (4)
+   - `billWiseController.js` (2)
+   - `eWayBillController.js` (1)
+   - `eInvoiceController.js` (1)
+   - `inventoryUnitController.js` (3)
+   - `stockTransferController.js` (3)
+   - `stockAdjustmentController.js` (2)
+   - `numberingSeriesController.js` (5 — already had tenant_id;
+     refactored to use the helper for consistency)
+   - `pdfController.js` (1)
+   - `transactionController.js` (2)
+   - `tallyImportController.js` (4)
+   - `tdsTcsController.js` (1 caller updated to pass `tenant_id`
+     into `tdsService.getCompanyTDSTCSConfig`)
+   - `authController.js` (5 self-lookup sites — JWT-derived
+     `userId`, so not exploitable, but added scope for
+     defense-in-depth)
+   - `reportController.js` (1 caller updated to pass `tenant_id`
+     and `company_id` into `reportService` options)
+
+3. **Patched call sites in services.**
+   - `inventoryService.js` (4)
+   - `voucherService.js` — pre-existing tenant-aware ctx pattern
+     reinforced
+   - `eInvoiceService.js`, `eWayBillService.js` — covered by the
+     controller-level patches and pre-existing scoped lookups
+   - `tdsService.js` — `generateLedgerCode` and
+     `getCompanyTDSTCSConfig` signatures extended to take
+     `tenantId`; callers updated
+   - `voucherPostingService.js` — `updateLedgerBalance` extended to
+     take `tenantId`; callers updated. The legacy unscoped path
+     remains as a deprecation fallback that emits a warning
+   - `tenantProvisioningService.js` — `createDefaultLedgers` now
+     scopes its existence check by `tenantId`
+   - `reportService.js` — `generateLedgerStatementReport` now
+     reads `tenant_id` / `company_id` from the options object
+
+4. **Schema fix in `tenantModels.js`.** `InventoryItem` was missing
+   a `tenant_id` column entirely and had **global** unique
+   constraints on `item_key` and `barcode`. Added `tenant_id`,
+   `company_id`, and replaced the global uniques with composite
+   `(tenant_id, item_key)` and `(tenant_id, barcode)` so two
+   tenants can legitimately use the same SKU/barcode.
+
+**Verification.**
 
 ```bash
-grep -rn "findByPk\|findOne" backend/src/controllers backend/src/services
+grep -rEn "tenantModels\\.(Voucher|Ledger|InventoryItem|...)\\.findByPk\\(" \
+  backend/src/controllers backend/src/services
 ```
 
-For each hit, confirm the `where` clause restricts to the caller's
-tenant. Adding a small base helper that injects this automatically
-(e.g. `findScoped(req, Model, id)`) is the long-term fix.
+returns exactly one hit — the documented deprecation-fallback path
+in `updateLedgerBalance` for callers that don't yet pass `tenantId`,
+which logs a warning. Every other call goes through the helper.
+
+**What still needs eyes.**
+
+- The audit's NEEDS_HUMAN bucket (~78 calls) was largely
+  `findOne({ where: { uniqueField } })` style lookups by globally
+  unique business keys (GSTIN, IRN, email, etc.). These are not
+  exploitable on their own, but adding `tenant_id` to them is cheap
+  defense-in-depth and we should do it as a future cleanup.
+- A handful of `findOne` calls inside services still use a manual
+  `where: { ..., tenant_id }` pattern instead of the helper — they
+  are correct, just not consistent. Migrating them is a follow-up.
+- `bulkCreate`, `update({ where: ... })`, and `destroy({ where:
+  ... })` calls were **not** part of this audit. They have the
+  same IDOR risk and need a sibling pass.
 
 ---
 
