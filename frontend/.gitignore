@@ -42,13 +42,15 @@ out
 /electron/dist
 /electron/build
 
-# Environment files
+# Environment files — block ALL .env files. Only *.example / *.sample
+# templates are allowed. (Real prod secret was previously leaked via
+# a tracked .env.production — keep this strict.)
 .env
-.env.local
-.env.development.local
-.env.test.local
-.env.production.local
-.env*.local
+.env.*
+!.env.example
+!.env.*.example
+!.env.sample
+!.env.*.sample
 
 # IDE and Editor files
 .vscode/

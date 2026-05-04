@@ -30,10 +30,12 @@ async function signTokens(userData) {
     expiresIn: JWT_EXPIRES_IN,
   });
 
-  // Generate refresh token (longer expiry)
+  // Generate refresh token (longer expiry). Signed with a SEPARATE
+  // secret from the access token: a leak of one secret does not
+  // compromise the other.
   const refreshToken = jwt.sign(
     { id: userData.id, tenant_id: userData.tenant_id, jti: jti },
-    JWT_SECRET,
+    JWT_REFRESH_SECRET,
     {
       expiresIn: JWT_REFRESH_EXPIRES_IN,
     }
@@ -68,14 +70,12 @@ async function signTokens(userData) {
 }
 
 /**
- * Verify JWT token
- * @param {string} token - JWT token to verify
- * @returns {Object|null} Decoded token payload or null if invalid
+ * Verify a JWT against a given secret. Internal helper. Defaults to the
+ * access-token secret so existing callers keep working.
  */
-function verifyToken(token) {
+function _verifyWith(token, secret) {
   try {
-    const decoded = jwt.verify(token, JWT_SECRET);
-    return decoded;
+    return jwt.verify(token, secret);
   } catch (error) {
     if (error.name === 'TokenExpiredError') {
       logger.warn('Token expired');
@@ -86,6 +86,21 @@ function verifyToken(token) {
     }
     return null;
   }
+}
+
+/**
+ * Verify an access token (signed with JWT_SECRET).
+ * Kept under the legacy name for backwards-compat with any importer.
+ */
+function verifyToken(token) {
+  return _verifyWith(token, JWT_SECRET);
+}
+
+/**
+ * Verify a refresh token (signed with JWT_REFRESH_SECRET).
+ */
+function verifyRefreshToken(token) {
+  return _verifyWith(token, JWT_REFRESH_SECRET);
 }
 
 /**
@@ -137,7 +152,7 @@ async function revokeSession(userId, jti) {
  */
 async function refreshAccessToken(refreshToken) {
   try {
-    const decoded = verifyToken(refreshToken);
+    const decoded = verifyRefreshToken(refreshToken);
     if (!decoded) {
       return null;
     }
@@ -189,6 +204,7 @@ async function refreshAccessToken(refreshToken) {
 module.exports = {
   signTokens,
   verifyToken,
+  verifyRefreshToken,
   getSession,
   revokeSession,
   refreshAccessToken,

@@ -35,11 +35,20 @@ function require_(name, { minLength = 0 } = {}) {
 
 // Secrets — must always be present, regardless of environment.
 const JWT_SECRET = require_('JWT_SECRET', { minLength: 32 });
+const JWT_REFRESH_SECRET = require_('JWT_REFRESH_SECRET', { minLength: 32 });
 const ENCRYPTION_KEY = require_('ENCRYPTION_KEY', { minLength: 16 });
 const PAYLOAD_ENCRYPTION_KEY = require_('PAYLOAD_ENCRYPTION_KEY', { minLength: 16 });
 
-// Refresh token secret — falls back to JWT_SECRET if not set, but warn.
-const JWT_REFRESH_SECRET = process.env.JWT_REFRESH_SECRET || JWT_SECRET;
+// Defense in depth: refuse to boot if access and refresh secrets are
+// the same value. The whole point of two secrets is isolation — if a
+// leak of one shouldn't compromise the other, they cannot match.
+if (JWT_SECRET && JWT_REFRESH_SECRET && JWT_SECRET === JWT_REFRESH_SECRET) {
+  errors.push(
+    'JWT_SECRET and JWT_REFRESH_SECRET must be DIFFERENT values. ' +
+      'Generate a separate refresh secret with: ' +
+      'node -e "console.log(require(\'crypto\').randomBytes(64).toString(\'hex\'))"'
+  );
+}
 
 // Database — at least one of the two forms must be configured.
 const hasDatabaseUrl = Boolean(process.env.DATABASE_URL);
@@ -58,13 +67,6 @@ if (errors.length > 0) {
     '\nFix the missing variables in your .env (or your platform\'s environment settings) and restart.\n'
   );
   process.exit(1);
-}
-
-if (isProduction && !process.env.JWT_REFRESH_SECRET) {
-  console.warn(
-    '[ENV] JWT_REFRESH_SECRET not set; using JWT_SECRET for refresh tokens. ' +
-      'Set a separate JWT_REFRESH_SECRET in production for stronger isolation.'
-  );
 }
 
 module.exports = {

@@ -89,23 +89,93 @@ module: `src/utils/jwt.js`, `src/middleware/auth.js`,
 `src/middleware/tenant.js`, `src/seeders/001-admin-master-seeder.js`,
 `src/websocket/socketServer.js`.
 
-### 1.2 ⚠️ Confirm no real secret value ever leaked into git history
+### 1.2 ✅ Git history scanned — one leaked secret found and contained
 
-Run once on the repo:
+We ran the audit:
 
 ```bash
-git log --all -p -- backend/.env* \
-  | grep -iE 'JWT_SECRET|ENCRYPTION_KEY|RAZORPAY_KEY_SECRET'
+git log --all -p 2>/dev/null \
+  | grep -E '^\+.*(JWT_SECRET|ENCRYPTION_KEY|RAZORPAY_KEY_SECRET|RAZORPAY_WEBHOOK_SECRET|PAYLOAD_ENCRYPTION_KEY|JWT_REFRESH_SECRET)\s*=' \
+  | grep -viE '(your[-_]|change[-_ ]|placeholder|example|sample|min[-_]32|=$|=""$|=\'\'$|process\.env\.)'
 ```
 
-If anything resembling a real secret comes back, **rotate it** in your
-hosting platform / KMS and force the old value out of any backups.
+**Findings.**
 
-### 1.3 ⚠️ Use a separate refresh-token secret (recommended)
+- `backend/.env.railway.example` only ever contained placeholder
+  values like `your-super-secret-jwt-key-...`. **Not real.** Safe.
+- `frontend/.env.production` was tracked in git and contained a real
+  secret on line 13:
+  `NEXT_PUBLIC_PAYLOAD_ENCRYPTION_KEY=Devils@2609`. First committed
+  in `e023609` ("update on modal", 2026-02-09). **This is real.**
 
-`JWT_REFRESH_SECRET` is supported but optional. If unset, refresh tokens
-are signed with `JWT_SECRET`. Setting both gives stronger isolation: if
-one secret leaks, the other is still safe. In production, set both.
+**What we did about it.**
+
+- Removed `frontend/.env.production` from git tracking
+  (`git rm --cached`) so future commits don't include it. The file
+  stays on disk for local development.
+- Added a non-secret template at
+  `frontend/.env.production.example` so other developers know what
+  variables to set without leaking values.
+- Hardened both `.gitignore` files (root and `frontend/`) to block
+  every `.env*` file by default, with an explicit allowlist for
+  `*.example` / `*.sample` templates only.
+
+**What you must still do (manual).**
+
+1. **Rotate the leaked key now.** It is still in the git history
+   (commit `e023609`) and visible to anyone with repo read access.
+   - Generate a new key:
+     `node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"`.
+   - Update both backend (`PAYLOAD_ENCRYPTION_KEY`) and frontend
+     (`NEXT_PUBLIC_PAYLOAD_ENCRYPTION_KEY`) production envs to the
+     new value.
+   - Restart both services. Existing in-flight encrypted payloads
+     will fail until clients reload — usually a non-issue because
+     these are per-request.
+2. **(Optional) Scrub the secret from git history.** Untracking only
+   prevents *future* commits from carrying it; the historical commit
+   still has it. To purge, use `git-filter-repo`:
+   ```bash
+   pip install git-filter-repo
+   git filter-repo --path frontend/.env.production --invert-paths
+   git push --force --all
+   git push --force --tags
+   ```
+   This rewrites history (every collaborator must re-clone) so only
+   do it after rotating the key and warning the team.
+
+### 1.3 ✅ Refresh tokens now use a separate, required secret
+
+**The problem.** `JWT_REFRESH_SECRET` was optional and silently fell
+back to `JWT_SECRET`. Worse, `signTokens()` was hardcoded to sign
+refresh tokens with `JWT_SECRET` regardless. So in practice both
+tokens were always signed with the same key — leaking the access-
+token secret would have leaked the refresh-token secret too.
+
+**What we did.**
+
+- `src/config/env.js` now treats `JWT_REFRESH_SECRET` as
+  **required** (≥ 32 chars). The server refuses to boot without it.
+- It also refuses to boot if `JWT_SECRET === JWT_REFRESH_SECRET`,
+  so you can't trivially circumvent the isolation.
+- `src/utils/jwt.js` actually signs refresh tokens with
+  `JWT_REFRESH_SECRET` and verifies them via a new
+  `verifyRefreshToken()` helper. Access tokens still use
+  `JWT_SECRET`. The two key paths are fully separated.
+
+**Migration.** Existing deployments must add a new env var:
+
+```bash
+# Generate
+node -e "console.log(require('crypto').randomBytes(64).toString('hex'))"
+# Set
+JWT_REFRESH_SECRET=<paste here>
+```
+
+When you deploy this change, all currently-issued refresh tokens
+become invalid (they were signed with the old secret). Active users
+will be logged out the next time their access token expires and the
+client tries to refresh; they just need to log in again.
 
 ---
 
@@ -591,7 +661,7 @@ Cron jobs should be safe to run twice. Use unique business keys, not
 | Variable | Required? | Notes |
 |---|---|---|
 | `JWT_SECRET` | **Yes** | ≥ 32 chars. App refuses to boot otherwise. |
-| `JWT_REFRESH_SECRET` | Recommended | Falls back to `JWT_SECRET` if unset. |
+| `JWT_REFRESH_SECRET` | **Yes** | ≥ 32 chars, must differ from `JWT_SECRET`. App refuses to boot otherwise. |
 | `ENCRYPTION_KEY` | **Yes** | ≥ 16 chars. Used for tenant DB password encryption. |
 | `PAYLOAD_ENCRYPTION_KEY` | **Yes** | ≥ 16 chars. Must match the frontend. |
 | `DATABASE_URL` *or* `DB_HOST`+`DB_USER` | **Yes** | One of the two. |
