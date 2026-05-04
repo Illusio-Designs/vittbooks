@@ -215,6 +215,51 @@ const uploadDSCCertificate = multer({
   fileFilter: dscCertificateFilter,
 });
 
+/**
+ * Magic-byte validator middleware factory.
+ *
+ * Multer trusts whatever Content-Type the client sent. After multer has
+ * written the upload to disk, we sniff the real bytes and reject if the
+ * content doesn't match the route's allow list. Use it like:
+ *
+ *   router.post('/foo', uploadProfile.single('image'),
+ *     validateUploadedFile(['image/png', 'image/jpeg']),
+ *     controller.handler);
+ *
+ * The middleware unlinks the rejected file before responding so we
+ * never leave attacker-controlled content on disk.
+ */
+function validateUploadedFile(allowedMimes, options = {}) {
+  const { detectMime } = require('../utils/fileMagic');
+  return async function validateUploadedFileMiddleware(req, res, next) {
+    try {
+      const files = []
+        .concat(req.file ? [req.file] : [])
+        .concat(req.files ? (Array.isArray(req.files) ? req.files : Object.values(req.files).flat()) : []);
+
+      for (const f of files) {
+        if (!f || !f.path) continue;
+        const detected = await detectMime(f.path);
+        const ok = detected
+          ? allowedMimes.includes(detected)
+          : Boolean(options.allowExtensionFallback);
+        if (!ok) {
+          try { fs.unlinkSync(f.path); } catch (_e) { /* ignore */ }
+          return res.status(400).json({
+            success: false,
+            message: 'Uploaded file content does not match an allowed type',
+            detected: detected || 'unknown',
+            allowed: allowedMimes,
+          });
+        }
+      }
+      next();
+    } catch (err) {
+      next(err);
+    }
+  };
+}
+
 module.exports = {
   upload,
   uploadTally, // Separate upload instance for Tally imports with higher file size limit
@@ -223,4 +268,5 @@ module.exports = {
   uploadCompanySignature,
   uploadDSCCertificate,
   uploadDir,
+  validateUploadedFile,
 };

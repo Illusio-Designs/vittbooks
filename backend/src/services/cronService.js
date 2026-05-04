@@ -5,8 +5,62 @@
  */
 
 const cron = require('node-cron');
+const os = require('os');
 const logger = require('../utils/logger');
+const redisClient = require('../config/redis');
 const TrialCleanupService = require('../../scripts/cleanup-expired-trials');
+
+const INSTANCE_ID = `${os.hostname()}-${process.pid}`;
+
+/**
+ * Run `task` only if this process wins a Redis lock for `lockKey`.
+ *
+ * Without this, every backend replica would fire the same cron tick
+ * and run the job N times. We use SET NX EX to acquire the lock and
+ * release it on the way out (best-effort). Lock TTL is sized to be
+ * larger than the slowest expected job run so a crashed worker can't
+ * deadlock the schedule.
+ *
+ * If Redis is unreachable we **fail open** (run the job) — better to
+ * occasionally double-run than to silently skip nightly cleanup
+ * because Redis blipped.
+ */
+async function runWithLeaderLock(lockKey, ttlSeconds, task) {
+  if (!redisClient.isConnected || !redisClient.isConnected()) {
+    logger.warn(`[cron] Redis unavailable; running ${lockKey} without lock`);
+    return task();
+  }
+  const fullKey = `cron:lock:${lockKey}`;
+  let acquired = false;
+  try {
+    const reply = await redisClient.sendCommand([
+      'SET', fullKey, INSTANCE_ID, 'NX', 'EX', String(ttlSeconds),
+    ]);
+    acquired = reply === 'OK';
+  } catch (err) {
+    logger.warn(`[cron] Lock acquisition failed for ${lockKey}: ${err.message}; running anyway`);
+    return task();
+  }
+
+  if (!acquired) {
+    logger.info(`[cron] Skipping ${lockKey} — another instance holds the lock`);
+    return;
+  }
+
+  try {
+    await task();
+  } finally {
+    // Best-effort release. We compare-and-delete so a job that ran
+    // longer than its TTL doesn't accidentally release another worker's
+    // lock.
+    try {
+      const luaCAD = `if redis.call("GET", KEYS[1]) == ARGV[1] then return redis.call("DEL", KEYS[1]) else return 0 end`;
+      await redisClient.sendCommand(['EVAL', luaCAD, '1', fullKey, INSTANCE_ID]);
+    } catch (e) {
+      logger.warn(`[cron] Lock release failed for ${lockKey}: ${e.message}`);
+    }
+  }
+}
 
 class CronService {
   constructor() {
@@ -58,16 +112,18 @@ class CronService {
     const schedule = '0 2 * * *'; // Every day at 2:00 AM
     
     const job = cron.schedule(schedule, async () => {
-      logger.info('🧹 Starting scheduled trial cleanup...');
-      
-      try {
-        const cleanup = new TrialCleanupService();
-        await cleanup.run();
-        logger.info('✅ Scheduled trial cleanup completed successfully');
-      } catch (error) {
-        logger.error('❌ Scheduled trial cleanup failed:', error);
-        // Don't throw - we don't want to crash the server
-      }
+      // Leader-elect via Redis so only one replica runs the job per tick.
+      // 1-hour TTL: comfortably longer than the cleanup ever takes.
+      await runWithLeaderLock(jobName, 3600, async () => {
+        logger.info('🧹 Starting scheduled trial cleanup...');
+        try {
+          const cleanup = new TrialCleanupService();
+          await cleanup.run();
+          logger.info('✅ Scheduled trial cleanup completed successfully');
+        } catch (error) {
+          logger.error('❌ Scheduled trial cleanup failed:', error);
+        }
+      });
     }, {
       scheduled: false, // Don't start immediately
       timezone: process.env.TIMEZONE || 'UTC'
@@ -96,14 +152,15 @@ class CronService {
     const schedule = '0 1 * * 0'; // Every Sunday at 1:00 AM
     
     const job = cron.schedule(schedule, async () => {
-      logger.info('💾 Starting scheduled database backup...');
-      
-      try {
-        // Add your backup logic here
-        logger.info('✅ Scheduled database backup completed');
-      } catch (error) {
-        logger.error('❌ Scheduled database backup failed:', error);
-      }
+      await runWithLeaderLock(jobName, 3600, async () => {
+        logger.info('💾 Starting scheduled database backup...');
+        try {
+          // Add your backup logic here
+          logger.info('✅ Scheduled database backup completed');
+        } catch (error) {
+          logger.error('❌ Scheduled database backup failed:', error);
+        }
+      });
     }, {
       scheduled: false,
       timezone: process.env.TIMEZONE || 'UTC'

@@ -44,6 +44,34 @@ module.exports = {
       const event = req.body;
       logger.info(`Razorpay webhook received: ${event.event}`);
 
+      // Idempotency: Razorpay may deliver the same event twice (network
+      // retries, at-least-once delivery). We acknowledge duplicates with
+      // 200 so they aren't redelivered, but we don't reprocess them.
+      // Keys are kept in Redis with a 7-day TTL — long enough to cover
+      // Razorpay's retry window. If Redis is offline we fail open and
+      // continue processing (better than dropping a real payment event).
+      const eventId = event.id || event.payload?.payment?.entity?.id || null;
+      if (eventId) {
+        try {
+          const redisClient = require('../config/redis');
+          const dedupKey = `webhook:razorpay:${eventId}`;
+          if (redisClient.isConnected && redisClient.isConnected()) {
+            // Use raw SETNX (via sendCommand) so the check + set is atomic.
+            // SET key value NX EX <seconds>
+            const ttlSeconds = 7 * 24 * 60 * 60;
+            const reply = await redisClient.sendCommand([
+              'SET', dedupKey, '1', 'NX', 'EX', String(ttlSeconds),
+            ]);
+            if (reply !== 'OK') {
+              logger.info(`Razorpay webhook ${eventId} already processed — acknowledging duplicate`);
+              return res.json({ success: true, duplicate: true });
+            }
+          }
+        } catch (dedupErr) {
+          logger.warn('Webhook idempotency check failed (continuing): ' + dedupErr.message);
+        }
+      }
+
       // Handle different event types
       switch (event.event) {
         case 'payment.captured':

@@ -1,4 +1,4 @@
-const axios = require('axios');
+const axios = require('../utils/httpClient');
 const crypto = require('crypto');
 const logger = require('../utils/logger');
 

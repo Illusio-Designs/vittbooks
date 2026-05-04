@@ -25,11 +25,11 @@ if (process.env.DATABASE_URL) {
     dialect: 'mysql',
     logging: process.env.NODE_ENV === 'development' ? (msg) => logger.debug(msg) : false,
     pool: {
-      max: 3,
-      min: 0,
-      acquire: 30000,
-      idle: 10000,
-      evict: 1000,
+      max: parseInt(process.env.DB_POOL_MAX) || 15,
+      min: parseInt(process.env.DB_POOL_MIN) || 0,
+      acquire: parseInt(process.env.DB_POOL_ACQUIRE_MS) || 30000,
+      idle: parseInt(process.env.DB_POOL_IDLE_MS) || 10000,
+      evict: parseInt(process.env.DB_POOL_EVICT_MS) || 1000,
     },
     dialectOptions: {
       connectTimeout: 60000,
@@ -61,11 +61,11 @@ if (process.env.DATABASE_URL) {
     dialect: 'mysql',
     logging: process.env.NODE_ENV === 'development' ? (msg) => logger.debug(msg) : false,
     pool: {
-      max: 3,
-      min: 0,
-      acquire: 30000,
-      idle: 10000,
-      evict: 1000,
+      max: parseInt(process.env.DB_POOL_MAX) || 15,
+      min: parseInt(process.env.DB_POOL_MIN) || 0,
+      acquire: parseInt(process.env.DB_POOL_ACQUIRE_MS) || 30000,
+      idle: parseInt(process.env.DB_POOL_IDLE_MS) || 10000,
+      evict: parseInt(process.env.DB_POOL_EVICT_MS) || 1000,
     },
       dialectOptions: {
       connectTimeout: 60000,

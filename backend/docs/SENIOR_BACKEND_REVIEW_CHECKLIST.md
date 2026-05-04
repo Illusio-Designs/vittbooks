@@ -439,23 +439,42 @@ which logs a warning. Every other call goes through the helper.
 
 ## 4. Encryption
 
-### 4.1 ⚠️ The request/response payload encryption (CryptoJS) is weak
+### 4.1 ✅ AES-256-GCM payload encryption supported alongside legacy CryptoJS
 
-**The current state.** `src/utils/encryption.js` uses CryptoJS's
-"passphrase" mode, which derives an AES key from the secret using
-MD5-based EVP_BytesToKey (1 iteration) and AES-CBC with no integrity
-check. Modern bar: AES-256-GCM with a properly derived key.
+**The problem.** The shared payload-encryption code in
+`src/utils/encryption.js` uses CryptoJS's "passphrase" mode — AES-CBC
+with the OpenSSL EVP key-derivation (MD5-based, 1 iteration) and **no
+integrity check**. Modern bar: AES-256-GCM with a properly-derived key.
 
-**Why we didn't auto-fix it.** The frontend uses the same scheme to
-talk to this backend. Switching algorithms here would break every
-client until the frontend is shipped at the same time.
+**What we did.** Added a v2 scheme without breaking v1.
 
-**What we did do.** Removed the hardcoded fallback so the app at least
-won't run with a guessable key.
+- v1 (legacy) — CryptoJS string ciphertext, what the current frontend
+  emits and consumes. Still supported.
+- **v2 — AES-256-GCM** with a per-message random 12-byte IV, key
+  derived from `PAYLOAD_ENCRYPTION_KEY` via SHA-256, authenticated
+  (tampering is detected). Wire format:
+  `{ "v": 2, "iv": "<base64>", "tag": "<base64>", "ct": "<base64>" }`.
 
-**What you should do next.** Plan a coordinated frontend + backend
-release that switches both ends to AES-256-GCM (Node's built-in
-`crypto`, no third-party lib needed).
+`decryptPayload()` auto-detects the version: v2 if it sees the
+versioned object shape, v1 otherwise.
+
+`encryptResponse` middleware **mirrors** the request's version when
+the request itself was encrypted, so a v1 client always gets a v1
+response and a v2 client always gets v2. The
+`X-Encrypt-Response: v1|v2|true` header lets a client request a
+specific version on demand. The env flag `PAYLOAD_ENCRYPTION_V2=true`
+flips the default for unencrypted requests.
+
+**Migration path.**
+
+1. Ship this backend change; behaviour is unchanged for existing
+   clients (still v1 in / v1 out).
+2. Update the frontend to be able to *decrypt* v2 — it can keep
+   sending v1 for now.
+3. Set `PAYLOAD_ENCRYPTION_V2=true` (or have the frontend send v2)
+   and start producing v2 responses.
+4. Once you've cut over, you can drop the v1 helpers in a future
+   release.
 
 ### 4.2 ✅ Tenant DB-password encryption is now AES-GCM with random salt
 
@@ -488,7 +507,7 @@ exhaust memory on a small instance.
 `JSON_BODY_LIMIT`. File uploads are unaffected — they go through
 `multer`, which streams to disk and has its own per-route limits.
 
-### 5.2 ⚠️ Add `validator` as a real dependency
+### 5.2 ✅ Added `validator` as a real dependency
 
 `src/middleware/sanitize.js` does `require('validator')`, but this
 package isn't in `package.json` — it's only available transitively via
@@ -498,6 +517,11 @@ sanitization site-wide.
 **What we did.** Added `validator: ^13.12.0` to `dependencies`.
 
 ### 5.3 ⚠️ Reconsider the global "escape every string" sanitizer
+
+> **Why this stays ⚠️ for now:** removing the global escaper without
+> first putting per-route validation in place would make every endpoint
+> *more* permissive overnight. We left it as a follow-up that should
+> ship together with item 5.4.
 
 Right now every string in `req.body` / `req.query` / `req.params` gets
 HTML-escaped via `validator.escape(...)`. That's the wrong layer:
@@ -515,9 +539,14 @@ The cleaner pattern is:
    (`express-validator`, Zod, Yup…).
 2. **Escape on output**, only when injecting into HTML contexts.
 
-This needs per-endpoint review, so it was not auto-fixed.
-
 ### 5.4 ⚠️ Many endpoints still have no schema validation
+
+> **Why this stays ⚠️:** there are ~45 controllers and adding a
+> validator schema per route is a per-endpoint product decision (which
+> fields are required, what's the max length, what enum values, etc.).
+> Generating those schemas blindly from existing usage would either
+> reject legitimate traffic or be useless rubber-stamping. This needs
+> a human pass per controller.
 
 There are ~45 controllers and only a handful of validator files in
 `src/validators/`. Each route should declare what it accepts (required
@@ -575,36 +604,52 @@ production response:
 
 ## 7. Database
 
-### 7.1 ⚠️ Connection pool max is 3 — too small for production
+### 7.1 ✅ Connection pool size is configurable and defaults to 15
 
-`src/config/database.js` and `src/config/masterDatabase.js` set
-`pool.max = 3`. That's fine for a hobby instance; under real load
-requests will queue. 10–20 per backend instance is normal, capped so
-that `instances × pool.max` stays under MySQL `max_connections`.
+**The problem.** Both `src/config/database.js` and
+`src/config/masterDatabase.js` hardcoded `pool.max = 3`. Under any
+real load, requests queued behind the pool and timed out.
 
-### 7.2 ⚠️ Per-tenant connection manager — verify eviction
+**What we did.** Every pool field is now env-driven with sensible
+production defaults:
 
-The tenant connection manager (`src/config/tenantConnectionManager.js`)
-opens a separate MySQL connection per company on demand. Confirm:
+| Variable | Default | Notes |
+|---|---|---|
+| `DB_POOL_MAX` | `15` | Cap so that `instances × DB_POOL_MAX < mysql.max_connections`. |
+| `DB_POOL_MIN` | `0` | Lazy connection acquisition. |
+| `DB_POOL_ACQUIRE_MS` | `30000` | How long to wait for a free connection before erroring. |
+| `DB_POOL_IDLE_MS` | `10000` | Idle timeout before a connection is closed. |
+| `DB_POOL_EVICT_MS` | `1000` | How often to scan for idle connections. |
 
-- Total connections are capped (`MAX_TENANT_CONNECTIONS`).
-- Idle connections are evicted.
-- Errors close the connection (don't leak it back to the pool).
+### 7.2 ✅ Per-tenant connection manager no longer applies
+
+This was relevant under the old per-tenant-DB architecture. Since the
+single-shared-DB switch (item 0), there is one main connection pool
+and the tenant connection manager is a thin shim that returns it.
 
 ### 7.3 ⚠️ Wrap multi-table mutations in a transaction
 
+> **Why this stays ⚠️:** correctness here is service-by-service
+> business logic. Adding `sequelize.transaction()` around the *wrong*
+> set of statements can deadlock the DB, swallow errors, or change the
+> visibility of intermediate state. This needs a careful per-function
+> read of the accounting logic — voucher posting, ledger balance
+> updates, stock movements, commission accruals, COGS — by someone
+> who knows the business invariants.
+
 For an accounting app, every write that touches more than one table
-(voucher posting, ledger update, stock movement, commission accrual)
-must be inside a single Sequelize transaction. Otherwise a crash mid-way
-leaves the books inconsistent.
+must be inside a single Sequelize transaction. Otherwise a crash
+mid-way leaves the books inconsistent.
+
+Starting points for the audit:
 
 ```bash
 grep -rn "sequelize.transaction(" backend/src
 ```
 
-Audit the critical services:
-`voucherPostingService.js`, `inventoryService.js`,
-`commissionService.js`.
+Critical services to walk: `voucherPostingService.js`,
+`inventoryService.js`, `commissionService.js`,
+`voucherService.js`, and the eInvoice / eWayBill cancellation paths.
 
 ### 7.4 ✅ `db:fresh` etc. removed from package.json
 
@@ -633,11 +678,40 @@ table). Same for columns you `WHERE` on heavily — `tenant_id`,
 per-tenant subdirectories, randomised file names, per-route size
 limits, MIME + extension allow-listing. Remaining hardening work:
 
-### 8.1 ⚠️ Don't trust client-supplied MIME
+### 8.1 ✅ Magic-byte validator is available; opt-in per route
 
-`req.file.mimetype` is whatever the client said. For high-trust
-contexts (DSC certificates, invoices), additionally check the file's
-**magic bytes** server-side (`file-type` package) before storing.
+**The problem.** `req.file.mimetype` is whatever the client said.
+Multer happily writes `evil.html` to disk if the client lies in the
+Content-Type header.
+
+**What we did.**
+
+- Added `src/utils/fileMagic.js` — a dependency-free magic-byte
+  sniffer with signatures for JPEG, PNG, GIF, WEBP, BMP, PDF, ZIP /
+  Office, XML, and PEM certificates.
+- Added `validateUploadedFile(allowedMimes, options)` to
+  `src/config/multer.js`. After multer writes the file to disk this
+  middleware sniffs the actual bytes, rejects with HTTP 400 if the
+  content doesn't match, and **unlinks the rejected file** before
+  responding so attacker bytes never linger on disk.
+
+Wire it in like:
+
+```js
+const { uploadProfile, validateUploadedFile } = require('../config/multer');
+router.post(
+  '/profile/image',
+  uploadProfile.single('image'),
+  validateUploadedFile(['image/png', 'image/jpeg', 'image/webp']),
+  controller.uploadProfileImage
+);
+```
+
+> **Follow-up:** the validator is now available, but it is **not
+> automatically wired** onto every existing upload route. Each upload
+> route in `src/routes/*` should be touched once to add the
+> `validateUploadedFile([...])` call after the multer handler. Doing
+> it route-by-route keeps the allow-list explicit per endpoint.
 
 ### 8.2 ⚠️ Move user uploads off the API origin
 
@@ -667,31 +741,81 @@ a payload that round-trips identically and bypass it.
   and uses `crypto.timingSafeEqual` for the comparison (avoids timing
   attacks).
 
-### 9.2 ⚠️ Add timeouts and idempotency to outbound API calls
+### 9.2 ✅ Outbound HTTP now goes through a shared client with timeouts
 
-Outbound HTTP via `axios` (GST, e-invoice, e-way bill, Finbox,
-Razorpay) has no default timeout. A hung remote will pin event-loop
-slots forever. Recommended: a shared `axios.create({ timeout: 10000 })`
-client, plus retry-with-jitter and an idempotency-key for any call
-that has financial side effects.
+**The problem.** Plain `axios` has no default timeout. A single hung
+remote (GST API, IRP, e-way bill, Razorpay, Finbox) could pin
+event-loop slots indefinitely.
 
-### 9.3 ⚠️ Webhook idempotency
+**What we did.**
 
-Razorpay can deliver the same webhook twice. Store processed event IDs
-in Redis (or a small DB table) with a TTL, and short-circuit duplicates.
+- Added `src/utils/httpClient.js` — a shared axios instance with a
+  `HTTP_DEFAULT_TIMEOUT_MS` default of 10 seconds and a response
+  interceptor that logs timeouts / non-2xx / network errors in a
+  uniform way.
+- Switched `src/services/irpClient.js`,
+  `src/services/eWayBillClient.js`, and
+  `src/services/thirdPartyApiClient.js` from
+  `require('axios')` to `require('../utils/httpClient')`. They keep
+  their own per-call timeouts where those were already explicit.
+- The same module exports `create(overrides)` for services that need
+  a per-host instance with a different baseURL or timeout.
+
+> **Follow-up still ⚠️:** retry-with-jitter and per-call idempotency
+> keys are not in this change. They belong on a per-service basis —
+> a payments retry policy is not the same as a GST master-data
+> refresh policy.
+
+### 9.3 ✅ Razorpay webhook idempotency
+
+**The problem.** Razorpay's at-least-once delivery means we can
+receive the same payment / subscription event twice. Without dedup,
+that double-processes payments / commissions / status flips.
+
+**What we did.** Before any handler runs,
+`razorpayWebhookController.handleWebhook` reserves a Redis key
+`webhook:razorpay:<event.id>` with `SET NX EX 7d` (atomic
+check-and-set, 7-day TTL — covers Razorpay's retry window). The first
+delivery wins; any duplicate gets a `200 { duplicate: true }`
+acknowledgement and stops, so Razorpay doesn't keep retrying.
+If Redis is unreachable we fail open (process the event) — better to
+occasionally double-handle than to drop a real payment.
 
 ---
 
 ## 10. Logs, audit, privacy
 
-### 10.1 ⚠️ Add a redacting log formatter
+### 10.1 ✅ Redacting log formatter is now in place
 
-Make sure these never make it into log lines:
-`password`, `token`, `secret`, `authorization` header,
-`razorpay_signature`, `card`, `cvv`, full GSTIN/PAN/Aadhaar.
+**The problem.** Logs are the most common channel for accidental
+secret / PII leaks. A single misplaced `logger.info(req.body)` in the
+auth flow can dump every password to the log sink.
 
-A Winston format that walks each log object and replaces matching keys
-with `***` covers most accidents.
+**What we did.** `src/utils/logger.js` now runs every log entry
+through a Winston format that walks the metadata tree (up to 6 levels
+deep) and replaces values for these keys with `[REDACTED]`:
+
+- Credentials: `password`, `password_hash`, `new_password`,
+  `old_password`, anything matching `password.*hash`.
+- Tokens: `token`, `access_token`, `refresh_token`, `auth_token`,
+  `id_token`.
+- Secrets / keys: `secret`, `*_secret`, `api_key`, `client_secret`,
+  `webhook_secret`, `encryption_key`.
+- HTTP credentials: `authorization`, `cookie`, `set_cookie`.
+- Provider headers: `razorpay_signature`,
+  `x_razorpay_signature`.
+- Card / sensitive PII: `card_number`, `cvv`, `cvc`, `ssn`,
+  `aadhaar`, `otp`.
+
+In addition to key-based redaction, the formatter scrubs *string
+values* anywhere in the log entry:
+
+- `Bearer <…>` headers.
+- Anything that looks like a JWT (`eyJ…` three-segment base64url).
+
+The redactor runs in front of all transports (file + dev console),
+so anything that lands in `logs/` or stdout has already been
+sanitised.
 
 ### 10.2 ⚠️ Confirm the audit trail is append-only
 
@@ -750,15 +874,27 @@ Tenant B's browsers.
 
 ## 13. Cron / background jobs
 
-### 13.1 ⚠️ Multiple replicas will run each cron N times
+### 13.1 ✅ Cron jobs are now leader-elected via Redis
 
-`src/services/cronService.js` uses `node-cron` in-process. With more
-than one backend instance, every job fires on every instance. Either:
+**The problem.** `src/services/cronService.js` runs `node-cron`
+in-process. With multiple backend replicas, every replica fires the
+same tick → nightly cleanup runs N times, double-billing risk on any
+"on-charge" job, etc.
 
-- Run cron in a single dedicated worker, or
-- Use Redis SETNX with a TTL to make jobs leader-elected, or
-- Move scheduled work to Bull (already a dep) and run a single worker
-  fleet for the queue.
+**What we did.** Each scheduled tick now wraps its work in
+`runWithLeaderLock(jobName, ttl, task)`:
+
+- `SET NX EX` on a Redis key `cron:lock:<jobName>` — atomic
+  acquire-or-skip across all replicas.
+- TTL is set comfortably larger than the job's expected runtime
+  (1 hour for the existing trial-cleanup job) so a crashed replica
+  can't deadlock the schedule.
+- On exit the lock is released via a Lua compare-and-delete so a job
+  that ran past its TTL doesn't accidentally release another
+  replica's freshly-acquired lock.
+- Instance identity is `${hostname}-${pid}`.
+- If Redis is unavailable, we **fail open** (run the job) — better to
+  occasionally double-run than silently skip nightly cleanup.
 
 ### 13.2 📌 Make every job idempotent
 
@@ -802,3 +938,8 @@ Cron jobs should be safe to run twice. Use unique business keys, not
 | `AUTH_RATE_LIMIT_MAX` | Optional | Default `20` per 15-min window per IP for auth endpoints. |
 | `JWT_EXPIRES_IN` | Optional | Default `15m`. Short-lived access tokens. |
 | `JWT_REFRESH_EXPIRES_IN` | Optional | Default `7d`. |
+| `DB_POOL_MAX` | Optional | Default `15`. Connection pool max per backend instance. Cap so `instances × DB_POOL_MAX < mysql.max_connections`. |
+| `DB_POOL_MIN`, `DB_POOL_ACQUIRE_MS`, `DB_POOL_IDLE_MS`, `DB_POOL_EVICT_MS` | Optional | Pool tuning knobs (see item 7.1). |
+| `HTTP_DEFAULT_TIMEOUT_MS` | Optional | Default `10000`. Outbound HTTP timeout for the shared client (item 9.2). |
+| `HTTP_DEFAULT_MAX_REDIRECTS` | Optional | Default `5`. |
+| `PAYLOAD_ENCRYPTION_V2` | Optional | Set `true` to default outbound payload encryption to AES-256-GCM (item 4.1). Both versions are accepted on input regardless. |
