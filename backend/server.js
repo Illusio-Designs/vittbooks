@@ -19,7 +19,6 @@ async function startServer() {
     // Log environment status at startup (without sensitive data)
     logger.info('🚀 Starting Finvera Backend Server...');
     logger.info('🔍 Environment check:');
-    logger.info(`   MYSQL_URL: ${process.env.MYSQL_URL ? 'SET' : 'NOT SET'}`);
     logger.info(`   DATABASE_URL: ${process.env.DATABASE_URL ? 'SET' : 'NOT SET'}`);
     logger.info(`   DB_HOST: ${process.env.DB_HOST || 'NOT SET (will default to localhost)'}`);
     logger.info(`   DB_USER: ${process.env.DB_USER || 'NOT SET (will default to root)'}`);
@@ -181,7 +180,7 @@ async function startServer() {
     }
     // Log environment variable status (without sensitive data)
     logger.error('❌ Environment check:');
-    logger.error(`   MYSQL_URL: ${process.env.MYSQL_URL ? 'SET' : 'NOT SET'}`);
+    logger.error(`   DATABASE_URL: ${process.env.DATABASE_URL ? 'SET' : 'NOT SET'}`);
     logger.error(`   DB_HOST: ${process.env.DB_HOST || 'NOT SET'}`);
     logger.error(`   DB_USER: ${process.env.DB_USER || 'NOT SET'}`);
     logger.error(`   DB_NAME: ${process.env.DB_NAME || 'NOT SET'}`);

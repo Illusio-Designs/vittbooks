@@ -1,4 +1,4 @@
-// Load .env only if not in production (Railway sets env vars directly)
+// Load .env only if not in production (hosted platforms set env vars directly)
 if (process.env.NODE_ENV !== 'production') {
   require('dotenv').config();
 }
@@ -13,12 +13,11 @@ const logger = require('../utils/logger');
  */
 const masterDbName = process.env.MASTER_DB_NAME || 'fintranzact_master';
 
-// Support MYSQL_URL (Railway), DATABASE_URL (Render), or individual variables
+// Support DATABASE_URL connection string or individual variables
 let masterSequelize;
-if (process.env.MYSQL_URL || process.env.DATABASE_URL) {
-  // Use connection string (Railway uses MYSQL_URL, Render uses DATABASE_URL)
-  const connectionUrl = process.env.MYSQL_URL || process.env.DATABASE_URL;
-  logger.info(`[DB CONFIG] Using connection string (${process.env.MYSQL_URL ? 'MYSQL_URL' : 'DATABASE_URL'}) for master database`);
+if (process.env.DATABASE_URL) {
+  const connectionUrl = process.env.DATABASE_URL;
+  logger.info(`[DB CONFIG] Using DATABASE_URL connection string for master database`);
   // Parse URL and replace database name with master database name
   const url = new URL(connectionUrl);
   url.pathname = `/${masterDbName}`;
@@ -108,9 +107,9 @@ async function initMasterDatabase() {
       
       // Connect without database name to create it
       let rootConnection;
-      if (process.env.MYSQL_URL || process.env.DATABASE_URL) {
-        const connectionUrl = process.env.MYSQL_URL || process.env.DATABASE_URL;
-        logger.info(`[INIT] Using connection string (${process.env.MYSQL_URL ? 'MYSQL_URL' : 'DATABASE_URL'}) for database creation`);
+      if (process.env.DATABASE_URL) {
+        const connectionUrl = process.env.DATABASE_URL;
+        logger.info(`[INIT] Using DATABASE_URL connection string for database creation`);
         // Use connection string but without database name
         const url = new URL(connectionUrl);
         url.pathname = '/';

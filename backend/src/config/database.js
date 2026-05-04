@@ -1,4 +1,4 @@
-// Load .env only if not in production (Railway sets env vars directly)
+// Load .env only if not in production (hosted platforms set env vars directly)
 if (process.env.NODE_ENV !== 'production') {
   require('dotenv').config();
 }
@@ -7,13 +7,13 @@ const logger = require('../utils/logger');
 
 const dbName = process.env.DB_NAME || 'fintranzact_main';
 
-// Support Railway's MYSQL_URL connection string or individual variables
+// Support DATABASE_URL connection string or individual variables
 let sequelize;
-if (process.env.MYSQL_URL) {
-  // Use Railway's MYSQL_URL connection string (format: mysql://user:password@host:port/database)
-  logger.info(`[DB CONFIG] Using MYSQL_URL connection string for main database`);
+if (process.env.DATABASE_URL) {
+  // Use DATABASE_URL connection string (format: mysql://user:password@host:port/database)
+  logger.info(`[DB CONFIG] Using DATABASE_URL connection string for main database`);
   // Parse URL and replace database name
-  const url = new URL(process.env.MYSQL_URL);
+  const url = new URL(process.env.DATABASE_URL);
   url.pathname = `/${dbName}`;
   sequelize = new Sequelize(url.toString(), {
     dialect: 'mysql',
@@ -36,8 +36,8 @@ if (process.env.MYSQL_URL) {
   const dbUser = process.env.DB_USER || 'root';
   logger.info(`[DB CONFIG] Main DB Connection: host=${dbHost}, port=${dbPort}, user=${dbUser}, database=${dbName}`);
   if (!process.env.DB_HOST || dbHost === 'localhost') {
-    logger.warn(`[DB CONFIG] ⚠️  DB_HOST is 'localhost'. This will fail on Railway.`);
-    logger.warn(`[DB CONFIG] Please set MYSQL_URL=\${{MySQL.MYSQL_URL}} in Railway environment variables.`);
+    logger.warn(`[DB CONFIG] ⚠️  DB_HOST is 'localhost'. This will fail on a hosted environment.`);
+    logger.warn(`[DB CONFIG] Set DATABASE_URL or DB_HOST/DB_USER/DB_PASSWORD in your environment.`);
   }
   
   sequelize = new Sequelize(
@@ -73,9 +73,9 @@ async function initDatabase() {
     
     // Connect without database name to create it
     let rootConnection;
-    if (process.env.MYSQL_URL || process.env.DATABASE_URL) {
-      const connectionUrl = process.env.MYSQL_URL || process.env.DATABASE_URL;
-      logger.info(`[INIT] Using connection string (${process.env.MYSQL_URL ? 'MYSQL_URL' : 'DATABASE_URL'}) for database creation`);
+    if (process.env.DATABASE_URL) {
+      const connectionUrl = process.env.DATABASE_URL;
+      logger.info(`[INIT] Using DATABASE_URL connection string for database creation`);
       // Use connection string but without database name
       const url = new URL(connectionUrl);
       url.pathname = '/';

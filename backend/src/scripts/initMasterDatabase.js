@@ -45,9 +45,9 @@ async function initMasterDatabase() {
       
       // Connect without database name to create it
       let rootConnection;
-      if (process.env.MYSQL_URL || process.env.DATABASE_URL) {
-        const connectionUrl = process.env.MYSQL_URL || process.env.DATABASE_URL;
-        logger.info(`[INIT] Using connection string (${process.env.MYSQL_URL ? 'MYSQL_URL' : 'DATABASE_URL'}) for database creation`);
+      if (process.env.DATABASE_URL) {
+        const connectionUrl = process.env.DATABASE_URL;
+        logger.info(`[INIT] Using DATABASE_URL connection string for database creation`);
         // Use connection string but without database name
         const url = new URL(connectionUrl);
         url.pathname = '/';

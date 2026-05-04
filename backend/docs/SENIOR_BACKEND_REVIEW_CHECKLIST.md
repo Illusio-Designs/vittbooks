@@ -24,8 +24,8 @@ A practical, prioritized checklist for reviewing this Node.js / Express / Sequel
 | 1.1 | 🔴 CRIT | `src/utils/jwt.js:6`, `src/middleware/auth.js:23,99`, `src/websocket/socketServer.js:77` | `JWT_SECRET` falls back to the literal string `'your-secret-key-change-in-production'`. If the env var is missing in any environment, every token becomes forgeable. | Remove the fallback. Fail fast at boot if `JWT_SECRET` is not set or shorter than 32 bytes. |
 | 1.2 | 🔴 CRIT | `src/utils/encryption.js:5` | `PAYLOAD_ENCRYPTION_KEY` falls back to `'fintranzact-default-encryption-key-change-this-in-production'`. | Same: fail fast, no fallback. |
 | 1.3 | 🔴 CRIT | `src/middleware/tenant.js:201`, `src/services/tenantProvisioningService.js:883,893`, `src/seeders/001-admin-master-seeder.js:20` | `ENCRYPTION_KEY` falls back to `'default-key'`. Tenant DB passwords are encrypted with this. If env is missing once in prod, every tenant DB password is decryptable by anyone with code access. | Remove the fallback. Add a startup check. Rotate any password encrypted with the default key. |
-| 1.4 | 🟠 HIGH | `.env.railway.example` | Sample shows `SESSION_SECRET`, `JWT_SECRET`, `ENCRYPTION_KEY` placeholders. Confirm none of these placeholder values were ever committed to a real `.env`. | `git log --all -p -- backend/.env*` and rotate anything that ever leaked. |
-| 1.5 | 🟠 HIGH | `src/config/database.js:46`, `src/middleware/tenant.js:117` | DB host/user/password fall back to `localhost` / `root` / `''`. Silent misconfiguration risk on cloud. | Require `MYSQL_URL` (or all of `DB_HOST`/`DB_USER`/`DB_PASSWORD`). Throw on missing in production. |
+| 1.4 | 🟠 HIGH | `.env*` (deleted samples) | Confirm placeholder values from the old `.env` samples were never committed to a real `.env` file in any environment. | `git log --all -p -- backend/.env*` and rotate anything that ever leaked. |
+| 1.5 | 🟠 HIGH | `src/config/database.js:46`, `src/middleware/tenant.js:117` | DB host/user/password fall back to `localhost` / `root` / `''`. Silent misconfiguration risk on cloud. | Require `DATABASE_URL` (or all of `DB_HOST`/`DB_USER`/`DB_PASSWORD`). Throw on missing in production. |
 | 1.6 | 🟡 MED | `server.js:22-29` | Logs which env vars are set. Verify no secret values are ever logged (currently OK, only `SET / NOT SET`). | Keep this discipline; add an ESLint rule against `logger.info(... process.env.X)` for secret-named keys. |
 | 1.7 | 🟡 MED | repo-wide | Single shared `JWT_SECRET` for access + refresh tokens. Compromise of one ⇒ compromise of both. | Use distinct secrets, e.g. `JWT_ACCESS_SECRET` and `JWT_REFRESH_SECRET`. |
 
@@ -82,7 +82,7 @@ A practical, prioritized checklist for reviewing this Node.js / Express / Sequel
 | 6.2 | 🟠 HIGH | `src/config/cors.js:69-71` | In any non-production `NODE_ENV`, **all origins are allowed**. If `NODE_ENV` is unset on a real environment, this opens CORS to the world. | Default to closed. Use an explicit `ALLOW_ANY_ORIGIN=true` flag for local dev. |
 | 6.3 | 🟡 MED | `src/app.js:27-30` | `helmet({ contentSecurityPolicy: false })`. CSP disabled "for API" is fine, but ensure: HSTS on, `X-Frame-Options: DENY`, `Referrer-Policy: no-referrer`, `Cross-Origin-Resource-Policy` is appropriate for `/uploads`. | Audit final response headers from a production deployment. |
 | 6.4 | 🟡 MED | `src/middleware/errorHandler.js:88-91` | If `NODE_ENV !== 'production'` the stack trace is returned in the response. If `NODE_ENV` is unset, stack traces leak. | Default to production behavior unless `NODE_ENV === 'development'`. |
-| 6.5 | 🟡 MED | `src/app.js:21` | `trust proxy: 1` — fine when behind exactly one trusted proxy (Railway/CF). Document this assumption. Behind two layers, IPs in rate limits/audit logs will be wrong. | Document, and parameterize via env. |
+| 6.5 | 🟡 MED | `src/app.js:21` | `trust proxy: 1` — fine when behind exactly one trusted proxy (LB/CDN). Document this assumption. Behind two layers, IPs in rate limits/audit logs will be wrong. | Document, and parameterize via env. |
 | 6.6 | 🟢 LOW | `src/config/cors.js:90` | Methods include `OPTIONS` (good). `exposedHeaders` doesn’t include rate-limit headers — frontend can’t see them. | Optional: expose `RateLimit-*` headers. |
 
 ## 7. Database & Sequelize
@@ -130,12 +130,12 @@ Files: `src/config/multer.js`, `src/controllers/fileController.js`, `/uploads` s
 
 | # | Severity | Area | Finding | Action |
 |---|---|---|---|---|
-| 11.1 | 🟠 HIGH | startup | `server.js` continues after master DB init throws a `WebAssembly Out of memory` error (lines 60-70). Continuing in a half-initialized state can cause subtle failures later. | Crash and let the orchestrator (PM2/Railway) restart you. Don’t mask init failures. |
+| 11.1 | 🟠 HIGH | startup | `server.js` continues after master DB init throws a `WebAssembly Out of memory` error (lines 60-70). Continuing in a half-initialized state can cause subtle failures later. | Crash and let the orchestrator (PM2 / your platform) restart you. Don’t mask init failures. |
 | 11.2 | 🟠 HIGH | reliability | `process.on('unhandledRejection')` (server.js:236-251) tries to “recover” from WASM OOM by ignoring the error. In Node, after `unhandledRejection` the process should be restarted, not continued. | Always exit non-zero on unhandled rejections in production. |
 | 11.3 | 🟠 HIGH | secrets mgmt | `.env` is git-ignored — confirm there is no past commit that ever contained a real secret (`git log --all -p | grep -i 'JWT_SECRET\|ENCRYPTION_KEY\|RAZORPAY_KEY_SECRET'`). If yes, rotate. | Run check, rotate if needed. |
 | 11.4 | 🟡 MED | CI | Add: `npm audit --production`, `eslint`, `prettier --check`, dependency licence check. There’s a `.github/` folder — verify a CI workflow exists. | Add or harden CI pipeline. |
 | 11.5 | 🟡 MED | tests | No `test/` folder is present at the backend root. For a financial app, unit + integration tests on tax calc, voucher posting, ledger balancing are non-negotiable. | Plan a test strategy (Jest + supertest). |
-| 11.6 | 🟡 MED | observability | Add request-id correlation, structured JSON logs, latency histograms, error rate, DB pool gauges, Redis health, Bull queue lengths. | Wire to Datadog / Grafana / Railway metrics. |
+| 11.6 | 🟡 MED | observability | Add request-id correlation, structured JSON logs, latency histograms, error rate, DB pool gauges, Redis health, Bull queue lengths. | Wire to Datadog / Grafana / your platform metrics. |
 | 11.7 | 🟢 LOW | docs | The repo has many top-level `.md` docs but no single architecture/runbook for backend ops. | Consolidate into `backend/docs/`. |
 
 ## 12. WebSocket / Realtime

@@ -5,7 +5,6 @@
   "main": "server.js",
   "scripts": {
     "start": "node --max-old-space-size=4096 --expose-gc server.js",
-    "start:railway": "node --max-old-space-size=512 --expose-gc server.js",
     "dev": "nodemon --exec \"node --max-old-space-size=4096 --expose-gc\" server.js",
     "migrate": "sequelize db:migrate",
     "migrate:undo": "sequelize db:migrate:undo",
@@ -19,9 +18,7 @@
     "db:init": "node scripts/fresh-database-setup.js",
     "db:verify": "node scripts/verify-tables.js",
     "db:fix": "node scripts/fix-database-structure.js",
-    "db:fresh": "node scripts/drop-all-tables.js && npm run db:init",
-    "railway:postdeploy": "node scripts/railway-postdeploy.js",
-    "railway:check-storage": "node scripts/check-railway-storage.js"
+    "db:fresh": "node scripts/drop-all-tables.js && npm run db:init"
   },
   "keywords": [],
   "author": "",
