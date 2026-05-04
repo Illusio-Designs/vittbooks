@@ -2,6 +2,7 @@ const crypto = require('crypto');
 const EWayBillClient = require('./eWayBillClient');
 const { createApiClientFromCompany } = require('./thirdPartyApiClient');
 const logger = require('../utils/logger');
+const { findByIdScoped, findOneScoped } = require('../utils/scopedQueries');
 
 function nowIso() {
   return new Date().toISOString();
@@ -265,10 +266,11 @@ class EWayBillService {
    * @returns {Promise<Object>} E-Way Bill response
    */
   async generateEWayBill(voucherId, transportDetails, ctx) {
-    const { tenantModels, company } = ctx;
+    const { tenantModels, company, tenant_id, company_id } = ctx;
+    const scopeCtx = { tenant_id: tenant_id || null, company_id: company_id || null };
 
     // Fetch voucher with all related data
-    const voucher = await tenantModels.Voucher.findByPk(voucherId, {
+    const voucher = await findByIdScoped(scopeCtx, tenantModels.Voucher, voucherId, {
       include: [
         { model: tenantModels.VoucherItem, as: 'voucher_items' },
         { model: tenantModels.Ledger, as: 'partyLedger' },
@@ -284,8 +286,9 @@ class EWayBillService {
     }
 
     // Check if E-Way Bill already exists
-    const existing = await tenantModels.EWayBill.findOne({ 
-      where: { voucher_id: voucherId, status: 'active' } 
+    const existing = await findOneScoped(scopeCtx, tenantModels.EWayBill, {
+      voucher_id: voucherId,
+      status: 'active',
     });
     if (existing) {
       return {
@@ -458,9 +461,10 @@ class EWayBillService {
    * @returns {Promise<Object>} Cancellation response
    */
   async cancelEWayBill(eWayBillId, reason, remarks = '', ctx) {
-    const { tenantModels, company } = ctx;
+    const { tenantModels, company, tenant_id, company_id } = ctx;
+    const scopeCtx = { tenant_id: tenant_id || null, company_id: company_id || null };
 
-    const eWayBill = await tenantModels.EWayBill.findByPk(eWayBillId);
+    const eWayBill = await findByIdScoped(scopeCtx, tenantModels.EWayBill, eWayBillId);
     if (!eWayBill) {
       throw new Error('E-Way Bill not found');
     }
@@ -531,9 +535,10 @@ class EWayBillService {
    * @returns {Promise<Object>} Update response
    */
   async updateVehicleDetails(eWayBillId, vehicleNo, reasonCode, remarks = '', ctx) {
-    const { tenantModels, company } = ctx;
+    const { tenantModels, company, tenant_id, company_id } = ctx;
+    const scopeCtx = { tenant_id: tenant_id || null, company_id: company_id || null };
 
-    const eWayBill = await tenantModels.EWayBill.findByPk(eWayBillId);
+    const eWayBill = await findByIdScoped(scopeCtx, tenantModels.EWayBill, eWayBillId);
     if (!eWayBill) {
       throw new Error('E-Way Bill not found');
     }
@@ -595,9 +600,10 @@ class EWayBillService {
    * @returns {Promise<Object>} E-Way Bill details
    */
   async getEWayBill(eWayBillId, ctx) {
-    const { tenantModels } = ctx;
+    const { tenantModels, tenant_id, company_id } = ctx;
+    const scopeCtx = { tenant_id: tenant_id || null, company_id: company_id || null };
 
-    const eWayBill = await tenantModels.EWayBill.findByPk(eWayBillId, {
+    const eWayBill = await findByIdScoped(scopeCtx, tenantModels.EWayBill, eWayBillId, {
       include: [{
         model: tenantModels.Voucher,
         as: 'voucher',
@@ -650,8 +656,9 @@ class EWayBillService {
    * Cancel E-Way Bill by voucher ID
    */
   async cancel(ctx, voucherId, reason) {
-    const { tenantModels } = ctx;
-    const eWayBill = await tenantModels.EWayBill.findOne({ where: { voucher_id: voucherId } });
+    const { tenantModels, tenant_id, company_id } = ctx;
+    const scopeCtx = { tenant_id: tenant_id || null, company_id: company_id || null };
+    const eWayBill = await findOneScoped(scopeCtx, tenantModels.EWayBill, { voucher_id: voucherId });
     if (!eWayBill) {
       throw new Error('E-Way Bill not found');
     }

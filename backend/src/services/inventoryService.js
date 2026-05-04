@@ -1,6 +1,7 @@
 
 const { Op } = require('sequelize');
 const logger = require('../utils/logger');
+const { findByIdScoped, findOneScoped } = require('../utils/scopedQueries');
 
 /**
  * Finds or creates an inventory item with a robust, multi-layered lookup.
@@ -14,38 +15,36 @@ const logger = require('../utils/logger');
  * This approach ensures accurate inventory tracking and prevents the creation
  * of duplicate items.
  */
-async function findOrCreateInventoryItem(tenantModels, itemData, transaction) {
+async function findOrCreateInventoryItem(tenantModels, itemData, transaction, tenantId, companyId = null) {
   const { inventory_item_id, barcode, item_code, item_name, variant_attributes } = itemData;
+  const ctx = { tenant_id: tenantId, company_id: companyId || null };
 
   // 1. Direct ID lookup
   if (inventory_item_id) {
-    const item = await tenantModels.InventoryItem.findByPk(inventory_item_id, { transaction });
+    const item = await findByIdScoped(ctx, tenantModels.InventoryItem, inventory_item_id, { transaction });
     if (item) return { item, created: false };
   }
 
   // 2. Barcode lookup
   if (barcode) {
-    const item = await tenantModels.InventoryItem.findOne({ where: { barcode }, transaction });
+    const item = await findOneScoped(ctx, tenantModels.InventoryItem, { barcode }, { transaction });
     if (item) return { item, created: false };
   }
 
   // 3. Item code (SKU) lookup
   if (item_code) {
-    const item = await tenantModels.InventoryItem.findOne({ where: { item_code }, transaction });
+    const item = await findOneScoped(ctx, tenantModels.InventoryItem, { item_code }, { transaction });
     if (item) return { item, created: false };
   }
 
   // 4. Variant lookup (item_name + attributes)
   if (variant_attributes && item_name) {
-    const item = await tenantModels.InventoryItem.findOne({
-      where: {
-        item_name,
-        attributes: {
-          [Op.eq]: variant_attributes,
-        },
+    const item = await findOneScoped(ctx, tenantModels.InventoryItem, {
+      item_name,
+      attributes: {
+        [Op.eq]: variant_attributes,
       },
-      transaction,
-    });
+    }, { transaction });
     if (item) return { item, created: false };
   }
 
@@ -61,7 +60,7 @@ async function findOrCreateInventoryItem(tenantModels, itemData, transaction) {
         .join('_');
       uniqueItemKey = `${itemKey}_${attrString}`.toLowerCase();
     }
-    
+
     const [item, created] = await tenantModels.InventoryItem.findOrCreate({
       where: { item_key: uniqueItemKey },
       defaults: {

@@ -1,4 +1,5 @@
 const eInvoiceService = require('../services/eInvoiceService');
+const { findOneScoped } = require('../utils/scopedQueries');
 
 module.exports = {
   async generateIRN(req, res, next) {
@@ -7,7 +8,7 @@ module.exports = {
       if (!voucher_id) return res.status(400).json({ message: 'voucher_id is required' });
 
       const eInvoice = await eInvoiceService.generateIRN(
-        { tenantModels: req.tenantModels, masterModels: req.masterModels, company: req.company },
+        { tenantModels: req.tenantModels, masterModels: req.masterModels, company: req.company, tenant_id: req.tenant_id, company_id: req.company_id },
         voucher_id
       );
 
@@ -26,7 +27,7 @@ module.exports = {
       const { reason } = req.body;
 
       const eInvoice = await eInvoiceService.cancelEInvoice(
-        { tenantModels: req.tenantModels, masterModels: req.masterModels, company: req.company },
+        { tenantModels: req.tenantModels, masterModels: req.masterModels, company: req.company, tenant_id: req.tenant_id, company_id: req.company_id },
         voucher_id,
         reason
       );
@@ -40,9 +41,7 @@ module.exports = {
   async getEInvoice(req, res, next) {
     try {
       const { voucher_id } = req.params;
-      const eInvoice = await req.tenantModels.EInvoice.findOne({
-        where: { voucher_id },
-      });
+      const eInvoice = await findOneScoped(req, req.tenantModels.EInvoice, { voucher_id });
 
       if (!eInvoice) return res.status(404).json({ message: 'E-invoice not found' });
       res.json({ eInvoice });
@@ -124,7 +123,7 @@ module.exports = {
       
       const result = await eInvoiceService.retryEInvoiceGeneration(
         id,
-        { tenantModels: req.tenantModels, masterModels: req.masterModels, company: req.company }
+        { tenantModels: req.tenantModels, masterModels: req.masterModels, company: req.company, tenant_id: req.tenant_id, company_id: req.company_id }
       );
 
       res.json({

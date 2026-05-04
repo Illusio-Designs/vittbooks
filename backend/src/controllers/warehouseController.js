@@ -1,5 +1,6 @@
 const { Op } = require('sequelize');
 const logger = require('../utils/logger');
+const { findByIdScoped, findOneScoped } = require('../utils/scopedQueries');
 
 module.exports = {
   async list(req, res, next) {
@@ -110,7 +111,7 @@ module.exports = {
   async getById(req, res, next) {
     try {
       const { id } = req.params;
-      const warehouse = await req.tenantModels.Warehouse.findByPk(id);
+      const warehouse = await findByIdScoped(req, req.tenantModels.Warehouse, id);
 
       if (!warehouse) {
         return res.status(404).json({ error: 'Warehouse not found' });
@@ -144,9 +145,7 @@ module.exports = {
 
       // Check if warehouse_code already exists (if provided)
       if (warehouse_code) {
-        const existing = await req.tenantModels.Warehouse.findOne({
-          where: { warehouse_code },
-        });
+        const existing = await findOneScoped(req, req.tenantModels.Warehouse, { warehouse_code });
 
         if (existing) {
           return res.status(400).json({
@@ -197,7 +196,7 @@ module.exports = {
         is_active,
       } = req.body;
 
-      const warehouse = await req.tenantModels.Warehouse.findByPk(id);
+      const warehouse = await findByIdScoped(req, req.tenantModels.Warehouse, id);
 
       if (!warehouse) {
         return res.status(404).json({ error: 'Warehouse not found' });
@@ -205,9 +204,7 @@ module.exports = {
 
       // Check if warehouse_code conflicts with another warehouse
       if (warehouse_code !== undefined && warehouse_code !== warehouse.warehouse_code) {
-        const existing = await req.tenantModels.Warehouse.findOne({
-          where: { warehouse_code, id: { [Op.ne]: id } },
-        });
+        const existing = await findOneScoped(req, req.tenantModels.Warehouse, { warehouse_code, id: { [Op.ne]: id } });
         if (existing) {
           return res.status(400).json({
             error: 'A warehouse with this code already exists',
@@ -244,7 +241,7 @@ module.exports = {
   async delete(req, res, next) {
     try {
       const { id } = req.params;
-      const warehouse = await req.tenantModels.Warehouse.findByPk(id);
+      const warehouse = await findByIdScoped(req, req.tenantModels.Warehouse, id);
 
       if (!warehouse) {
         return res.status(404).json({ error: 'Warehouse not found' });

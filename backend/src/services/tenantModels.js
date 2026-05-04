@@ -424,7 +424,8 @@ module.exports = (sequelize) => {
     item_key: {
       type: DataTypes.STRING(300),
       allowNull: false,
-      unique: true,
+      // Uniqueness is per-tenant — see indexes below. Two tenants can
+      // legitimately have the same item_code / item_name.
       comment: 'Stable key (item_code if present else item_description)',
     },
     item_code: DataTypes.STRING(100),
@@ -435,7 +436,7 @@ module.exports = (sequelize) => {
     barcode: {
       type: DataTypes.STRING(100),
       allowNull: true,
-      unique: true,
+      // Uniqueness is per-tenant — see indexes below.
       comment: 'Product barcode (EAN-13, UPC, etc.)',
     },
     parent_item_id: {
@@ -501,9 +502,26 @@ module.exports = (sequelize) => {
       type: DataTypes.BOOLEAN,
       defaultValue: true,
     },
+    tenant_id: {
+      type: DataTypes.STRING,
+      allowNull: false,
+    },
+    company_id: {
+      type: DataTypes.UUID,
+      allowNull: true,
+      comment: 'Company-level isolation (optional; null means tenant-wide)',
+    },
   }, {
     tableName: 'inventory_items',
     timestamps: true,
+    indexes: [
+      // Per-tenant uniqueness on item_key and barcode. The previous
+      // global uniqueness was correct under the per-tenant-DB model
+      // but breaks once tenants share a database.
+      { unique: true, fields: ['tenant_id', 'item_key'], name: 'uniq_inventory_tenant_itemkey' },
+      { unique: true, fields: ['tenant_id', 'barcode'], name: 'uniq_inventory_tenant_barcode' },
+      { fields: ['tenant_id'], name: 'idx_inventory_tenant' },
+    ],
   });
 
   models.StockMovement = sequelize.define('StockMovement', {

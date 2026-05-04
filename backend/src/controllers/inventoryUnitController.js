@@ -1,5 +1,6 @@
 const { Op } = require('sequelize');
 const logger = require('../utils/logger');
+const { findByIdScoped, findOneScoped } = require('../utils/scopedQueries');
 
 module.exports = {
   /**
@@ -62,8 +63,7 @@ module.exports = {
     try {
       const { barcode } = req.params;
 
-      const unit = await req.tenantModels.InventoryUnit.findOne({
-        where: { unit_barcode: barcode },
+      const unit = await findOneScoped(req, req.tenantModels.InventoryUnit, { unit_barcode: barcode }, {
         include: [
           {
             model: req.tenantModels.InventoryItem,
@@ -95,7 +95,7 @@ module.exports = {
       const { id } = req.params;
       const { serial_number, imei_number, warranty_expiry, notes } = req.body;
 
-      const unit = await req.tenantModels.InventoryUnit.findByPk(id);
+      const unit = await findByIdScoped(req, req.tenantModels.InventoryUnit, id);
       if (!unit) {
         return res.status(404).json({ error: 'Unit not found' });
       }
@@ -122,7 +122,7 @@ module.exports = {
       const { id } = req.params;
       const { notes } = req.body;
 
-      const unit = await req.tenantModels.InventoryUnit.findByPk(id);
+      const unit = await findByIdScoped(req, req.tenantModels.InventoryUnit, id);
       if (!unit) {
         return res.status(404).json({ error: 'Unit not found' });
       }

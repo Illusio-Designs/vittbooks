@@ -1,6 +1,7 @@
 
 const { Op } = require('sequelize');
 const logger = require('../utils/logger');
+const { findByIdScoped } = require('../utils/scopedQueries');
 
 // Controller for managing reusable product attributes and their values
 module.exports = {
@@ -48,7 +49,7 @@ module.exports = {
         return res.status(400).json({ error: 'Attribute name is required' });
       }
 
-      const attribute = await req.tenantModels.ProductAttribute.findByPk(id);
+      const attribute = await findByIdScoped(req, req.tenantModels.ProductAttribute, id);
       if (!attribute) {
         return res.status(404).json({ error: 'Attribute not found' });
       }
@@ -68,7 +69,7 @@ module.exports = {
   async deleteAttribute(req, res, next) {
     try {
       const { id } = req.params;
-      const attribute = await req.tenantModels.ProductAttribute.findByPk(id);
+      const attribute = await findByIdScoped(req, req.tenantModels.ProductAttribute, id);
       if (!attribute) {
         return res.status(404).json({ error: 'Attribute not found' });
       }
@@ -91,7 +92,7 @@ module.exports = {
         return res.status(400).json({ error: 'Value is required' });
       }
 
-      const attribute = await req.tenantModels.ProductAttribute.findByPk(attributeId);
+      const attribute = await findByIdScoped(req, req.tenantModels.ProductAttribute, attributeId);
       if (!attribute) {
         return res.status(404).json({ error: 'Attribute not found' });
       }
@@ -115,7 +116,7 @@ module.exports = {
   async removeAttributeValue(req, res, next) {
     try {
       const { valueId } = req.params;
-      const value = await req.tenantModels.ProductAttributeValue.findByPk(valueId);
+      const value = await findByIdScoped(req, req.tenantModels.ProductAttributeValue, valueId);
       if (!value) {
         return res.status(404).json({ error: 'Attribute value not found' });
       }

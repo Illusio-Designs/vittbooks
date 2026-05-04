@@ -1,6 +1,7 @@
 const { Op } = require('sequelize');
 const logger = require('../utils/logger');
 const masterModels = require('../models/masterModels');
+const { findByIdScoped, findOneScoped } = require('../utils/scopedQueries');
 
 // Helper function to get business type from company/branch
 async function getBusinessType(companyId, branchId) {
@@ -161,7 +162,7 @@ module.exports = {
   async getById(req, res, next) {
     try {
       const { id } = req.params;
-      const item = await req.tenantModels.InventoryItem.findByPk(id);
+      const item = await findByIdScoped(req, req.tenantModels.InventoryItem, id);
 
       if (!item) {
         return res.status(404).json({ error: 'Inventory item not found' });
@@ -235,9 +236,9 @@ module.exports = {
       // Generate item_key from item_code or item_name
       const itemKey = String(item_code || item_name).trim().toLowerCase();
 
-      // Check if item with same key already exists
-      const existing = await req.tenantModels.InventoryItem.findOne({
-        where: { item_key: itemKey },
+      // Check if item with same key already exists (per tenant)
+      const existing = await findOneScoped(req, req.tenantModels.InventoryItem, {
+        item_key: itemKey,
       });
 
       if (existing) {
@@ -246,10 +247,10 @@ module.exports = {
         });
       }
 
-      // Check if barcode already exists
+      // Check if barcode already exists (per tenant)
       if (barcode) {
-        const existingBarcode = await req.tenantModels.InventoryItem.findOne({
-          where: { barcode },
+        const existingBarcode = await findOneScoped(req, req.tenantModels.InventoryItem, {
+          barcode,
         });
         if (existingBarcode) {
           return res.status(400).json({ 
@@ -280,8 +281,8 @@ module.exports = {
 
         // Ensure generated barcode is unique
         if (generatedBarcode) {
-          const existingGenerated = await req.tenantModels.InventoryItem.findOne({
-            where: { barcode: generatedBarcode },
+          const existingGenerated = await findOneScoped(req, req.tenantModels.InventoryItem, {
+            barcode: generatedBarcode,
           });
           if (existingGenerated) {
             return res.status(400).json({ 
@@ -309,12 +310,15 @@ module.exports = {
         quantity_on_hand: parseFloat(quantity_on_hand) || 0,
         avg_cost: parseFloat(avg_cost) || 0,
         is_active: is_active !== false,
+        tenant_id: req.tenant_id,
+        company_id: req.company_id || null,
       });
 
       // Create warehouse stock entry for default warehouse (always, even with 0 quantity)
       // This ensures items are properly connected to warehouses from the start
-      const defaultWarehouse = await req.tenantModels.Warehouse.findOne({
-        where: { is_default: true, is_active: true }
+      const defaultWarehouse = await findOneScoped(req, req.tenantModels.Warehouse, {
+        is_default: true,
+        is_active: true,
       });
 
       if (defaultWarehouse) {
@@ -362,7 +366,7 @@ module.exports = {
         is_active,
       } = req.body;
 
-      const item = await req.tenantModels.InventoryItem.findByPk(id);
+      const item = await findByIdScoped(req, req.tenantModels.InventoryItem, id);
 
       if (!item) {
         return res.status(404).json({ error: 'Inventory item not found' });
@@ -385,10 +389,11 @@ module.exports = {
           .trim()
           .toLowerCase();
         
-        // Check if new key conflicts with another item
+        // Check if new key conflicts with another item (in this tenant)
         if (newItemKey !== item.item_key) {
-          const existing = await req.tenantModels.InventoryItem.findOne({
-            where: { item_key: newItemKey, id: { [Op.ne]: id } },
+          const existing = await findOneScoped(req, req.tenantModels.InventoryItem, {
+            item_key: newItemKey,
+            id: { [Op.ne]: id },
           });
           if (existing) {
             return res.status(400).json({ 
@@ -416,7 +421,7 @@ module.exports = {
   async delete(req, res, next) {
     try {
       const { id } = req.params;
-      const item = await req.tenantModels.InventoryItem.findByPk(id);
+      const item = await findByIdScoped(req, req.tenantModels.InventoryItem, id);
 
       if (!item) {
         return res.status(404).json({ error: 'Inventory item not found' });
@@ -452,7 +457,7 @@ module.exports = {
       // Get business type from company/branch
       const businessType = await getBusinessType(company_id, branch_id);
 
-      const item = await req.tenantModels.InventoryItem.findByPk(id);
+      const item = await findByIdScoped(req, req.tenantModels.InventoryItem, id);
       if (!item) {
         return res.status(404).json({ error: 'Inventory item not found' });
       }
@@ -482,14 +487,14 @@ module.exports = {
           return res.status(400).json({ error: 'Invalid barcode type' });
       }
 
-      // Ensure generated barcode is unique
-      const existingBarcode = await req.tenantModels.InventoryItem.findOne({
-        where: { barcode: generatedBarcode },
+      // Ensure generated barcode is unique within this tenant
+      const existingBarcode = await findOneScoped(req, req.tenantModels.InventoryItem, {
+        barcode: generatedBarcode,
       });
 
       if (existingBarcode) {
-        return res.status(400).json({ 
-          error: 'Generated barcode already exists. Please try again.' 
+        return res.status(400).json({
+          error: 'Generated barcode already exists. Please try again.'
         });
       }
 
@@ -521,7 +526,7 @@ module.exports = {
 
       for (const itemId of item_ids) {
         try {
-          const item = await req.tenantModels.InventoryItem.findByPk(itemId);
+          const item = await findByIdScoped(req, req.tenantModels.InventoryItem, itemId);
           
           if (!item) {
             errors.push({ item_id: itemId, error: 'Item not found' });
@@ -550,9 +555,9 @@ module.exports = {
               continue;
           }
 
-          // Check uniqueness
-          const existingBarcode = await req.tenantModels.InventoryItem.findOne({
-            where: { barcode: generatedBarcode },
+          // Check uniqueness within tenant
+          const existingBarcode = await findOneScoped(req, req.tenantModels.InventoryItem, {
+            barcode: generatedBarcode,
           });
 
           if (existingBarcode) {
@@ -630,12 +635,12 @@ module.exports = {
         return res.status(400).json({ error: 'Warehouse ID is required' });
       }
 
-      const item = await req.tenantModels.InventoryItem.findByPk(id);
+      const item = await findByIdScoped(req, req.tenantModels.InventoryItem, id);
       if (!item) {
         return res.status(404).json({ error: 'Inventory item not found' });
       }
 
-      const warehouse = await req.tenantModels.Warehouse.findByPk(warehouse_id);
+      const warehouse = await findByIdScoped(req, req.tenantModels.Warehouse, warehouse_id);
       if (!warehouse) {
         return res.status(404).json({ error: 'Warehouse not found' });
       }
@@ -711,7 +716,7 @@ module.exports = {
       const { id } = req.params; // inventory_item_id
       const { warehouse_id } = req.query;
 
-      const item = await req.tenantModels.InventoryItem.findByPk(id);
+      const item = await findByIdScoped(req, req.tenantModels.InventoryItem, id);
       if (!item) {
         return res.status(404).json({ error: 'Inventory item not found' });
       }

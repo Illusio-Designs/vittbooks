@@ -102,6 +102,8 @@ module.exports = {
         tenantModels: req.tenantModels,
         masterModels: req.masterModels,
         company: req.company,
+        tenant_id: req.tenant_id,
+        company_id: req.company_id,
       };
 
       let result;
@@ -136,6 +138,8 @@ module.exports = {
         tenantModels: req.tenantModels,
         masterModels: req.masterModels,
         company: req.company,
+        tenant_id: req.tenant_id,
+        company_id: req.company_id,
       };
 
       const result = await tdsService.prepareAndFileReturn(ctx, quarter, financial_year);
@@ -165,6 +169,8 @@ module.exports = {
         tenantModels: req.tenantModels,
         masterModels: req.masterModels,
         company: req.company,
+        tenant_id: req.tenant_id,
+        company_id: req.company_id,
       };
 
       const result = await tdsService.generateForm16A(ctx, id);
@@ -194,6 +200,8 @@ module.exports = {
         tenantModels: req.tenantModels,
         masterModels: req.masterModels,
         company: req.company,
+        tenant_id: req.tenant_id,
+        company_id: req.company_id,
       };
 
       const status = await tdsService.getReturnStatus(ctx, return_id, form_type);

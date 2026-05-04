@@ -2,6 +2,7 @@ const { Op } = require('sequelize');
 const { Sequelize } = require('sequelize');
 const logger = require('../utils/logger');
 const LedgerValidator = require('../validators/ledgerValidator');
+const { findByIdScoped, findOneScoped } = require('../utils/scopedQueries');
 
 /**
  * Run migration to add missing columns to ledgers table
@@ -355,12 +356,12 @@ module.exports = {
       // Try to get ledger - handle missing columns gracefully
       let ledger;
       try {
-        ledger = await req.tenantModels.Ledger.findByPk(id);
+        ledger = await findByIdScoped(req, req.tenantModels.Ledger, id);
       } catch (error) {
         // If error is about missing column, try with explicit attributes
         if (error.message && error.message.includes("Unknown column")) {
           logger.warn('Ledger getById: Column missing, retrying with explicit attributes', error.message);
-          ledger = await req.tenantModels.Ledger.findByPk(id, {
+          ledger = await findByIdScoped(req, req.tenantModels.Ledger, id, {
             attributes: {
               exclude: ['country', 'opening_balance_date', 'currency', 'description', 'additional_fields'], // Exclude potentially missing columns
             },
@@ -433,7 +434,7 @@ module.exports = {
         ...dynamicFields
       } = req.body;
 
-      const ledger = await req.tenantModels.Ledger.findByPk(id);
+      const ledger = await findByIdScoped(req, req.tenantModels.Ledger, id);
 
       if (!ledger) {
         return res.status(404).json({ message: 'Ledger not found' });
@@ -581,7 +582,7 @@ module.exports = {
       const { id } = req.params;
       const { from_date, to_date } = req.query;
 
-      const ledger = await req.tenantModels.Ledger.findByPk(id);
+      const ledger = await findByIdScoped(req, req.tenantModels.Ledger, id);
 
       if (!ledger) {
         return res.status(404).json({ message: 'Ledger not found' });
@@ -666,7 +667,7 @@ module.exports = {
   async delete(req, res, next) {
     try {
       const { id } = req.params;
-      const ledger = await req.tenantModels.Ledger.findByPk(id);
+      const ledger = await findByIdScoped(req, req.tenantModels.Ledger, id);
 
       if (!ledger) {
         return res.status(404).json({ message: 'Ledger not found' });
@@ -683,9 +684,7 @@ module.exports = {
       }
 
       // Check if ledger is used in any vouchers
-      const voucherEntries = await req.tenantModels.VoucherLedgerEntry.findOne({
-        where: { ledger_id: id },
-      });
+      const voucherEntries = await findOneScoped(req, req.tenantModels.VoucherLedgerEntry, { ledger_id: id });
 
       if (voucherEntries) {
         return res.status(400).json({

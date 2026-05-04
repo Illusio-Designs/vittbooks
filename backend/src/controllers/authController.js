@@ -4,6 +4,7 @@ const fs = require('fs');
 const { signTokens, revokeSession } = require('../utils/jwt');
 const { User } = require('../models');
 const { uploadDir } = require('../config/multer');
+const { findByIdScoped, findOneScoped } = require('../utils/scopedQueries');
 
 // Lazy load masterModels to avoid circular dependency issues
 let masterModels;
@@ -967,7 +968,7 @@ module.exports = {
       try {
         if (req.tenantModels && req.tenantModels.User) {
           // Tenant user - get user only (no company info)
-          user = await req.tenantModels.User.findByPk(userId);
+          user = await findByIdScoped(req, req.tenantModels.User, userId);
         } else {
           // Admin user (master database)
           user = await User.findByPk(userId);
@@ -1033,7 +1034,7 @@ module.exports = {
       
       if (req.tenantModels && req.tenantModels.User) {
         // Tenant user
-        user = await req.tenantModels.User.findByPk(userId);
+        user = await findByIdScoped(req, req.tenantModels.User, userId);
       } else {
         // Admin user (master database)
         user = await User.findByPk(userId);
@@ -1047,7 +1048,7 @@ module.exports = {
       if (email && email !== user.email) {
         let existingUser = null;
         if (req.tenantModels && req.tenantModels.User) {
-          existingUser = await req.tenantModels.User.findOne({ where: { email } });
+          existingUser = await findOneScoped(req, req.tenantModels.User, { email });
         } else {
           existingUser = await User.findOne({ where: { email } });
         }
@@ -1133,7 +1134,7 @@ module.exports = {
       
       if (req.tenantModels && req.tenantModels.User) {
         // Tenant user
-        user = await req.tenantModels.User.findByPk(userId);
+        user = await findByIdScoped(req, req.tenantModels.User, userId);
       } else {
         // Admin user (master database)
         user = await User.findByPk(userId);
@@ -1187,7 +1188,7 @@ module.exports = {
       
       if (req.tenantModels && req.tenantModels.User) {
         // Tenant user
-        user = await req.tenantModels.User.findByPk(userId);
+        user = await findByIdScoped(req, req.tenantModels.User, userId);
       } else {
         // Admin user (master database)
         user = await User.findByPk(userId);

@@ -1,4 +1,5 @@
 const eWayBillService = require('../services/eWayBillService');
+const { findOneScoped } = require('../utils/scopedQueries');
 
 module.exports = {
   async generate(req, res, next) {
@@ -7,7 +8,7 @@ module.exports = {
       if (!voucher_id) return res.status(400).json({ message: 'voucher_id is required' });
 
       const eWayBill = await eWayBillService.generate(
-        { tenantModels: req.tenantModels, masterModels: req.masterModels, company: req.company },
+        { tenantModels: req.tenantModels, masterModels: req.masterModels, company: req.company, tenant_id: req.tenant_id, company_id: req.company_id },
         voucher_id,
         details
       );
@@ -23,7 +24,7 @@ module.exports = {
       const { voucher_id } = req.params;
       const { reason } = req.body || {};
       const eWayBill = await eWayBillService.cancel(
-        { tenantModels: req.tenantModels, masterModels: req.masterModels, company: req.company },
+        { tenantModels: req.tenantModels, masterModels: req.masterModels, company: req.company, tenant_id: req.tenant_id, company_id: req.company_id },
         voucher_id,
         reason
       );
@@ -36,7 +37,7 @@ module.exports = {
   async getByVoucher(req, res, next) {
     try {
       const { voucher_id } = req.params;
-      const eWayBill = await req.tenantModels.EWayBill.findOne({ where: { voucher_id } });
+      const eWayBill = await findOneScoped(req, req.tenantModels.EWayBill, { voucher_id });
       if (!eWayBill) return res.status(404).json({ message: 'E-way bill not found' });
       res.json({ eWayBill });
     } catch (err) {
@@ -129,7 +130,7 @@ module.exports = {
         vehicle_no,
         reason_code,
         remarks || '',
-        { tenantModels: req.tenantModels, masterModels: req.masterModels, company: req.company }
+        { tenantModels: req.tenantModels, masterModels: req.masterModels, company: req.company, tenant_id: req.tenant_id, company_id: req.company_id }
       );
 
       res.json({

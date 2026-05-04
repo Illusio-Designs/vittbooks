@@ -1,4 +1,5 @@
 const { Op } = require('sequelize');
+const { findByIdScoped, findOneScoped } = require('../utils/scopedQueries');
 
 function toNum(v, fallback = 0) {
   const n = parseFloat(v);
@@ -45,7 +46,7 @@ module.exports = {
   async updateGSTIN(req, res, next) {
     try {
       const { id } = req.params;
-      const gstin = await req.tenantModels.GSTIN.findByPk(id);
+      const gstin = await findByIdScoped(req, req.tenantModels.GSTIN, id);
       if (!gstin) return res.status(404).json({ message: 'GSTIN not found' });
 
       await gstin.update(req.body);
@@ -260,7 +261,7 @@ module.exports = {
 
       gstr1Data.hsn = Object.values(gstr1Data.hsn);
 
-      const gstinRow = gstin ? await req.tenantModels.GSTIN.findOne({ where: { gstin } }) : null;
+      const gstinRow = gstin ? await findOneScoped(req, req.tenantModels.GSTIN, { gstin }) : null;
       const gstrReturn = await req.tenantModels.GSTRReturn.create({
         gstin: gstin, // Use gstin instead of gstin_id
         tenant_id: req.user.tenant_id, // Add missing tenant_id
@@ -318,10 +319,8 @@ module.exports = {
       const startDate = new Date(year, month - 1, 1);
       const endDate = new Date(year, month, 0, 23, 59, 59);
 
-      const gstinRow = await req.tenantModels.GSTIN.findOne({ where: { gstin } });
-      const gstr1 = await req.tenantModels.GSTRReturn.findOne({
-        where: { gstin: gstin, return_type: 'GSTR1', return_period: period }, // Use gstin instead of gstin_id
-      });
+      const gstinRow = await findOneScoped(req, req.tenantModels.GSTIN, { gstin });
+      const gstr1 = await findOneScoped(req, req.tenantModels.GSTRReturn, { gstin: gstin, return_type: 'GSTR1', return_period: period });
 
       const purchaseVouchers = await req.tenantModels.Voucher.findAll({
         where: {

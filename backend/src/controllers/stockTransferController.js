@@ -1,5 +1,6 @@
 const { Op } = require('sequelize');
 const logger = require('../utils/logger');
+const { findByIdScoped } = require('../utils/scopedQueries');
 
 module.exports = {
   async list(req, res, next) {
@@ -142,19 +143,19 @@ module.exports = {
         return res.status(400).json({ error: 'Quantity must be greater than zero' });
       }
 
-      const item = await req.tenantModels.InventoryItem.findByPk(inventory_item_id, { transaction: t });
+      const item = await findByIdScoped(req, req.tenantModels.InventoryItem, inventory_item_id, { transaction: t });
       if (!item) {
         await t.rollback();
         return res.status(404).json({ error: 'Inventory item not found' });
       }
 
-      const fromWarehouse = await req.tenantModels.Warehouse.findByPk(from_warehouse_id, { transaction: t });
+      const fromWarehouse = await findByIdScoped(req, req.tenantModels.Warehouse, from_warehouse_id, { transaction: t });
       if (!fromWarehouse) {
         await t.rollback();
         return res.status(404).json({ error: 'From warehouse not found' });
       }
 
-      const toWarehouse = await req.tenantModels.Warehouse.findByPk(to_warehouse_id, { transaction: t });
+      const toWarehouse = await findByIdScoped(req, req.tenantModels.Warehouse, to_warehouse_id, { transaction: t });
       if (!toWarehouse) {
         await t.rollback();
         return res.status(404).json({ error: 'To warehouse not found' });

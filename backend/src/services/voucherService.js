@@ -2,6 +2,7 @@ const GSTCalculationService = require('./gstCalculationService');
 const NumberingService = require('./numberingService');
 const { Op } = require('sequelize');
 const logger = require('../utils/logger');
+const { findByIdScoped, findOneScoped } = require('../utils/scopedQueries');
 
 function toNum(v, fallback = 0) {
   const n = parseFloat(v);
@@ -20,9 +21,10 @@ async function getOrCreateSystemLedger({ tenantModels, masterModels, tenant_id }
     throw new Error('tenant_id is required for creating system ledgers');
   }
 
+  const ctx = { tenant_id, company_id: null };
   const existing =
-    (ledgerCode ? await tenantModels.Ledger.findOne({ where: { ledger_code: ledgerCode } }) : null) ||
-    (ledgerName ? await tenantModels.Ledger.findOne({ where: { ledger_name: ledgerName } }) : null);
+    (ledgerCode ? await findOneScoped(ctx, tenantModels.Ledger, { ledger_code: ledgerCode }) : null) ||
+    (ledgerName ? await findOneScoped(ctx, tenantModels.Ledger, { ledger_name: ledgerName }) : null);
 
   if (existing) return existing;
 
@@ -197,9 +199,9 @@ class VoucherService {
   async updateVoucher(voucherId, updates, ctx) {
     const { tenantModels } = ctx;
     const transaction = await tenantModels.sequelize.transaction();
-    
+
     try {
-      const voucher = await tenantModels.Voucher.findByPk(voucherId, { transaction });
+      const voucher = await findByIdScoped(ctx, tenantModels.Voucher, voucherId, { transaction });
       
       if (!voucher) {
         throw new Error('Voucher not found');
@@ -291,18 +293,18 @@ class VoucherService {
     const transaction = await tenantModels.sequelize.transaction();
     
     try {
-      const voucher = await tenantModels.Voucher.findByPk(voucherId, {
+      const voucher = await findByIdScoped(ctx, tenantModels.Voucher, voucherId, {
         include: [
           { model: tenantModels.VoucherItem, as: 'items' },
           { model: tenantModels.VoucherLedgerEntry, as: 'ledgerEntries' }
         ],
         transaction
       });
-      
+
       if (!voucher) {
         throw new Error('Voucher not found');
       }
-      
+
       if (voucher.status === 'posted') {
         throw new Error('Voucher is already posted');
       }
@@ -318,7 +320,7 @@ class VoucherService {
       if (voucher.ledgerEntries && voucher.ledgerEntries.length > 0) {
         const uniqueLedgerIds = [...new Set(voucher.ledgerEntries.map(entry => entry.ledger_id))];
         for (const ledgerId of uniqueLedgerIds) {
-          await this.updateLedgerBalance(tenantModels, ledgerId, transaction);
+          await this.updateLedgerBalance(tenantModels, ledgerId, transaction, ctx.tenant_id, ctx.company_id);
         }
       }
       
@@ -344,9 +346,9 @@ class VoucherService {
   async cancelVoucher(voucherId, reason, ctx) {
     const { tenantModels } = ctx;
     const transaction = await tenantModels.sequelize.transaction();
-    
+
     try {
-      const voucher = await tenantModels.Voucher.findByPk(voucherId, { transaction });
+      const voucher = await findByIdScoped(ctx, tenantModels.Voucher, voucherId, { transaction });
       
       if (!voucher) {
         throw new Error('Voucher not found');
@@ -382,13 +384,13 @@ class VoucherService {
    */
   async getVoucher(voucherId, ctx) {
     const { tenantModels } = ctx;
-    
-    const voucher = await tenantModels.Voucher.findByPk(voucherId, {
+
+    const voucher = await findByIdScoped(ctx, tenantModels.Voucher, voucherId, {
       include: [
-        { 
-          model: tenantModels.Ledger, 
-          as: 'partyLedger', 
-          attributes: ['id', 'ledger_name', 'gstin', 'state'] 
+        {
+          model: tenantModels.Ledger,
+          as: 'partyLedger',
+          attributes: ['id', 'ledger_name', 'gstin', 'state']
         },
         { model: tenantModels.VoucherItem, as: 'items' },
         { model: tenantModels.VoucherLedgerEntry, as: 'ledgerEntries' }
@@ -543,9 +545,10 @@ class VoucherService {
    * @param {String} ledgerId - Ledger ID to update
    * @param {Object} transaction - Database transaction
    */
-  async updateLedgerBalance(tenantModels, ledgerId, transaction) {
+  async updateLedgerBalance(tenantModels, ledgerId, transaction, tenantId = null, companyId = null) {
     try {
-      const ledger = await tenantModels.Ledger.findByPk(ledgerId, { transaction });
+      const ctx = { tenant_id: tenantId, company_id: companyId || null };
+      const ledger = await findByIdScoped(ctx, tenantModels.Ledger, ledgerId, { transaction });
       if (!ledger) {
         logger.warn(`Ledger not found: ${ledgerId}`);
         return;
@@ -667,7 +670,7 @@ class VoucherService {
     const { party_ledger_id, items = [], place_of_supply, is_reverse_charge = false, has_lut = false } = voucherData;
 
     // Get party ledger for state information
-    const partyLedger = await tenantModels.Ledger.findByPk(party_ledger_id);
+    const partyLedger = await findByIdScoped(ctx, tenantModels.Ledger, party_ledger_id);
     if (!partyLedger) throw new Error('Party ledger not found');
 
     const supplierState = company?.state || 'Maharashtra';
@@ -1509,9 +1512,9 @@ class VoucherService {
    * @throws {Error} Validation error
    */
   async validatePartyDetails(partyLedgerId, ctx) {
-    const { tenantModels } = ctx;
-    
-    const partyLedger = await tenantModels.Ledger.findByPk(partyLedgerId);
+    const { tenantModels, tenant_id } = ctx;
+
+    const partyLedger = await findByIdScoped({ tenant_id }, tenantModels.Ledger, partyLedgerId);
     if (!partyLedger) {
       throw new Error('Party ledger not found');
     }
@@ -1638,9 +1641,13 @@ class VoucherService {
         // High value retail invoices require customer GSTIN
         const totalAmount = toNum(voucherData.total_amount, 0);
         if (totalAmount > 50000) {
-          const { tenantModels } = ctx;
+          const { tenantModels, tenant_id } = ctx;
           if (voucherData.party_ledger_id) {
-            const partyLedger = await tenantModels.Ledger.findByPk(voucherData.party_ledger_id);
+            const partyLedger = await findByIdScoped(
+              { tenant_id },
+              tenantModels.Ledger,
+              voucherData.party_ledger_id
+            );
             if (!partyLedger?.gstin) {
               errors.push('Customer GSTIN is required for invoices above ₹50,000');
             }
@@ -1692,7 +1699,7 @@ class VoucherService {
    * @returns {Promise<boolean>} True if qualifies as retail invoice
    */
   async isRetailInvoice(voucherData, ctx) {
-    const { tenantModels } = ctx;
+    const { tenantModels, tenant_id } = ctx;
     
     // Calculate total amount if not provided
     let totalAmount = toNum(voucherData.total_amount, 0);
@@ -1719,7 +1726,11 @@ class VoucherService {
     
     // Check if customer GSTIN is not provided
     if (voucherData.party_ledger_id) {
-      const partyLedger = await tenantModels.Ledger.findByPk(voucherData.party_ledger_id);
+      const partyLedger = await findByIdScoped(
+        { tenant_id },
+        tenantModels.Ledger,
+        voucherData.party_ledger_id
+      );
       if (partyLedger && partyLedger.gstin) {
         // Customer has GSTIN, not a retail invoice
         return false;
@@ -1789,7 +1800,7 @@ class VoucherService {
     const { tenantModels, masterModels, company, tenant_id } = ctx;
     const { party_ledger_id, items = [], place_of_supply, is_reverse_charge = false, narration } = invoiceData || {};
 
-    const partyLedger = await tenantModels.Ledger.findByPk(party_ledger_id);
+    const partyLedger = await findByIdScoped({ tenant_id }, tenantModels.Ledger, party_ledger_id);
     if (!partyLedger) throw new Error('Party ledger not found');
 
     const supplierState = company?.state || partyLedger?.state || 'Maharashtra';
@@ -1849,7 +1860,11 @@ class VoucherService {
     let totalCOGS = 0;
     for (const item of processedItems) {
       if (item.inventory_item_id) {
-        const inventoryItem = await tenantModels.InventoryItem.findByPk(item.inventory_item_id);
+        const inventoryItem = await findByIdScoped(
+          { tenant_id },
+          tenantModels.InventoryItem,
+          item.inventory_item_id
+        );
         if (inventoryItem) {
           const itemCOGS = toNum(inventoryItem.avg_cost, 0) * toNum(item.quantity, 0);
           totalCOGS += itemCOGS;
@@ -1969,7 +1984,7 @@ class VoucherService {
       is_reverse_charge
     });
 
-    const partyLedger = await tenantModels.Ledger.findByPk(party_ledger_id);
+    const partyLedger = await findByIdScoped({ tenant_id }, tenantModels.Ledger, party_ledger_id);
     if (!partyLedger) throw new Error('Party ledger not found');
     
     console.log('👤 Party Ledger:', {

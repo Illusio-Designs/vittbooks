@@ -1,4 +1,5 @@
 const { Op } = require('sequelize');
+const { findByIdScoped } = require('../utils/scopedQueries');
 
 module.exports = {
   async getOutstanding(req, res, next) {
@@ -50,7 +51,7 @@ module.exports = {
       const { payment_voucher_id, allocations } = req.body;
 
       // Validate payment voucher exists
-      const paymentVoucher = await req.tenantModels.Voucher.findByPk(payment_voucher_id, { transaction });
+      const paymentVoucher = await findByIdScoped(req, req.tenantModels.Voucher, payment_voucher_id, { transaction });
 
       if (!paymentVoucher) {
         await transaction.rollback();
@@ -71,7 +72,7 @@ module.exports = {
       // Create allocations and update bills
       const createdAllocations = [];
       for (const allocation of allocations) {
-        const bill = await req.tenantModels.BillWiseDetail.findByPk(allocation.bill_id, { transaction });
+        const bill = await findByIdScoped(req, req.tenantModels.BillWiseDetail, allocation.bill_id, { transaction });
 
         if (!bill) {
           await transaction.rollback();

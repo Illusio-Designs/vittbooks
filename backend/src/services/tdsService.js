@@ -1,5 +1,6 @@
 const { createApiClientFromCompany } = require('./thirdPartyApiClient');
 const logger = require('../utils/logger');
+const { findByIdScoped, findOneScoped } = require('../utils/scopedQueries');
 
 /**
  * TDS Sections Configuration
@@ -272,18 +273,19 @@ class TDSService {
    * Validates Requirements: 4.5, 4.6, 4.10
    */
   async createTDSEntry(ctx, voucherId, tdsCalculation, options = {}) {
-    const { tenantModels, masterModels, tenant_id } = ctx;
-    
+    const { tenantModels, masterModels, tenant_id, company_id } = ctx;
+    const scopeCtx = { tenant_id: tenant_id || null, company_id: company_id || null };
+
     if (!voucherId) {
       throw new Error('Voucher ID is required for creating TDS entry');
     }
-    
+
     if (!tdsCalculation || !tdsCalculation.tdsAmount) {
       throw new Error('Valid TDS calculation is required');
     }
-    
+
     // Fetch the voucher to get party ledger details
-    const voucher = await tenantModels.Voucher.findByPk(voucherId, {
+    const voucher = await findByIdScoped(scopeCtx, tenantModels.Voucher, voucherId, {
       include: [{ model: tenantModels.Ledger, as: 'partyLedger' }],
     });
     
@@ -317,9 +319,7 @@ class TDSService {
     
     // Create or update TDS detail
     // Requirement 4.10: Link TDS detail to voucher
-    let tdsDetail = await tenantModels.TDSDetail.findOne({
-      where: { voucher_id: voucherId }
-    });
+    let tdsDetail = await findOneScoped(scopeCtx, tenantModels.TDSDetail, { voucher_id: voucherId });
     
     if (tdsDetail) {
       await tdsDetail.update(tdsDetailData);
@@ -333,7 +333,7 @@ class TDSService {
     // Requirement 4.5: Create TDS payable ledger entry (credit)
     // Get or create TDS Payable ledger
     const tdsPayableLedger = await this.getOrCreateTDSPayableLedger(
-      { tenantModels, masterModels, tenant_id },
+      { tenantModels, masterModels, tenant_id, company_id },
       tdsCalculation.sectionCode
     );
     
@@ -372,18 +372,17 @@ class TDSService {
    * Get or create TDS Payable ledger for a specific section
    * @private
    */
-  async getOrCreateTDSPayableLedger({ tenantModels, masterModels, tenant_id }, sectionCode) {
+  async getOrCreateTDSPayableLedger({ tenantModels, masterModels, tenant_id, company_id }, sectionCode) {
     if (!tenant_id) {
       throw new Error('tenant_id is required for creating TDS payable ledger');
     }
-    
+
+    const scopeCtx = { tenant_id, company_id: company_id || null };
     const ledgerCode = `TDS_PAYABLE_${sectionCode}`;
     const ledgerName = `TDS Payable - ${sectionCode}`;
-    
+
     // Check if ledger already exists
-    let existing = await tenantModels.Ledger.findOne({ 
-      where: { ledger_code: ledgerCode, tenant_id: tenant_id } 
-    });
+    let existing = await findOneScoped(scopeCtx, tenantModels.Ledger, { ledger_code: ledgerCode });
     
     if (existing) return existing;
     
@@ -424,9 +423,10 @@ class TDSService {
    * Uses Sandbox API for TDS calculation
    */
   async calculateTDS(ctx, voucherId, tdsSection, tdsRate) {
-    const { tenantModels, company } = ctx;
+    const { tenantModels, company, tenant_id, company_id } = ctx;
+    const scopeCtx = { tenant_id: tenant_id || null, company_id: company_id || null };
 
-    const voucher = await tenantModels.Voucher.findByPk(voucherId, {
+    const voucher = await findByIdScoped(scopeCtx, tenantModels.Voucher, voucherId, {
       include: [{ model: tenantModels.Ledger, as: 'partyLedger' }],
     });
 
@@ -489,9 +489,7 @@ class TDSService {
     }
 
     // Create or update TDS detail
-    const existing = await tenantModels.TDSDetail.findOne({
-      where: { voucher_id: voucherId }
-    });
+    const existing = await findOneScoped(scopeCtx, tenantModels.TDSDetail, { voucher_id: voucherId });
 
     const tdsData = {
       voucher_id: voucherId,
@@ -730,14 +728,15 @@ class TDSService {
    * Validates Requirements: 4.7, 4.9
    */
   async generateTDSCertificate(ctx, tdsDetailId) {
-    const { tenantModels, company, tenant_id } = ctx;
+    const { tenantModels, company, tenant_id, company_id } = ctx;
+    const scopeCtx = { tenant_id: tenant_id || null, company_id: company_id || null };
 
     if (!tdsDetailId) {
       throw new Error('TDS detail ID is required for generating certificate');
     }
 
     // Fetch TDS detail with related voucher
-    const tdsDetail = await tenantModels.TDSDetail.findByPk(tdsDetailId, {
+    const tdsDetail = await findByIdScoped(scopeCtx, tenantModels.TDSDetail, tdsDetailId, {
       include: [
         {
           model: tenantModels.Voucher,
@@ -916,16 +915,17 @@ class TDSService {
    * Uses third-party API if configured, otherwise generates locally
    */
   async generateForm16A(ctx, tdsDetailId) {
-    const { tenantModels, company } = ctx;
+    const { tenantModels, company, tenant_id, company_id } = ctx;
+    const scopeCtx = { tenant_id: tenant_id || null, company_id: company_id || null };
 
-    const tdsDetail = await tenantModels.TDSDetail.findByPk(tdsDetailId);
+    const tdsDetail = await findByIdScoped(scopeCtx, tenantModels.TDSDetail, tdsDetailId);
 
     if (!tdsDetail) {
       throw new Error('TDS detail not found');
     }
 
-    const ledger = await tenantModels.Ledger.findByPk(tdsDetail.ledger_id);
-    const voucher = await tenantModels.Voucher.findByPk(tdsDetail.voucher_id);
+    const ledger = await findByIdScoped(scopeCtx, tenantModels.Ledger, tdsDetail.ledger_id);
+    const voucher = await findByIdScoped(scopeCtx, tenantModels.Voucher, tdsDetail.voucher_id);
 
     // Check if third-party API is configured (Sandbox uses API key)
     const compliance = company?.compliance || {};
@@ -1385,15 +1385,17 @@ class TDSService {
       const createdLedgers = [];
 
       for (const ledgerData of ledgersToCreate) {
-        // Check if already exists
-        const existing = await tenantModels.Ledger.findOne({
-          where: { system_code: ledgerData.system_code },
-        });
+        // Check if already exists for this tenant
+        const existing = await findOneScoped(
+          { tenant_id: tenantId },
+          tenantModels.Ledger,
+          { system_code: ledgerData.system_code }
+        );
 
         if (!existing) {
           // Generate ledger code
           const groupCode = dutiesTaxGroup.group_code || 'TAX';
-          const ledgerCode = await this.generateLedgerCode(tenantModels, groupCode);
+          const ledgerCode = await this.generateLedgerCode(tenantModels, groupCode, tenantId);
 
           const ledger = await tenantModels.Ledger.create({
             ...ledgerData,
@@ -1447,15 +1449,17 @@ class TDSService {
         description: 'System-generated ledger for TCS payable to government',
       };
 
-      // Check if already exists
-      const existing = await tenantModels.Ledger.findOne({
-        where: { system_code: ledgerData.system_code },
-      });
+      // Check if already exists for this tenant
+      const existing = await findOneScoped(
+        { tenant_id: tenantId },
+        tenantModels.Ledger,
+        { system_code: ledgerData.system_code }
+      );
 
       if (!existing) {
         // Generate ledger code
         const groupCode = dutiesTaxGroup.group_code || 'TAX';
-        const ledgerCode = await this.generateLedgerCode(tenantModels, groupCode);
+        const ledgerCode = await this.generateLedgerCode(tenantModels, groupCode, tenantId);
 
         const ledger = await tenantModels.Ledger.create({
           ...ledgerData,

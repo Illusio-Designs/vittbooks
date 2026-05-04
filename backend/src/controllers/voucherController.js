@@ -2,10 +2,11 @@
 const { Op } = require('sequelize');
 const logger = require('../utils/logger');
 const { findOrCreateInventoryItem } = require('../services/inventoryService');
-const { 
-  generateLedgerEntriesByType, 
-  updateLedgerBalance 
+const {
+  generateLedgerEntriesByType,
+  updateLedgerBalance
 } = require('../services/voucherPostingService');
+const { findByIdScoped } = require('../utils/scopedQueries');
 
 function toNum(v, fallback = 0) {
   const n = parseFloat(v);
@@ -39,7 +40,7 @@ async function applyPurchaseInventory({ tenantModels }, voucher, voucherItems, t
       uqc: it.uqc,
       gst_rate: it.gst_rate,
       variant_attributes: it.variant_attributes,
-    }, t);
+    }, t, voucher.tenant_id, voucher.company_id);
 
     if (created) {
       logger.info(`Created new inventory item: ${inv.item_name} (ID: ${inv.id})`);
@@ -213,7 +214,7 @@ async function applySalesInventoryAndGetCogs({ tenantModels }, voucher, voucherI
       item_code: it.item_code,
       item_name: it.item_description || it.item_name,
       variant_attributes: it.variant_attributes,
-    }, t);
+    }, t, voucher.tenant_id, voucher.company_id);
     
     if (inv) {
       // Create stock movement record for tracking (no balance update)
@@ -603,12 +604,12 @@ module.exports = {
 
   async getById(req, res, next) {
     try {
-      const voucher = await req.tenantModels.Voucher.findByPk(req.params.id, {
+      const voucher = await findByIdScoped(req, req.tenantModels.Voucher, req.params.id, {
         include: [
           { model: req.tenantModels.Ledger, as: 'partyLedger', attributes: ['id', 'ledger_name'] },
           { model: req.tenantModels.VoucherItem, as: 'items' },
-          { 
-            model: req.tenantModels.VoucherLedgerEntry, 
+          {
+            model: req.tenantModels.VoucherLedgerEntry,
             as: 'ledgerEntries',
             include: [
               { model: req.tenantModels.Ledger, as: 'ledger', attributes: ['id', 'ledger_name'] }
@@ -635,8 +636,8 @@ module.exports = {
 
   async update(req, res, next) {
     try {
-      const voucher = await req.tenantModels.Voucher.findByPk(req.params.id);
-      
+      const voucher = await findByIdScoped(req, req.tenantModels.Voucher, req.params.id);
+
       if (!voucher) {
         return res.status(404).json({ message: 'Voucher not found' });
       }
@@ -652,7 +653,7 @@ module.exports = {
     const transaction = await req.tenantModels.sequelize.transaction();
     
     try {
-      const voucher = await req.tenantModels.Voucher.findByPk(req.params.id, {
+      const voucher = await findByIdScoped(req, req.tenantModels.Voucher, req.params.id, {
         include: [
           { model: req.tenantModels.VoucherItem, as: 'items' },
           { model: req.tenantModels.Ledger, as: 'partyLedger', attributes: ['id', 'ledger_name'] }
@@ -730,13 +731,13 @@ module.exports = {
     const transaction = await req.tenantModels.sequelize.transaction();
     
     try {
-      const voucher = await req.tenantModels.Voucher.findByPk(req.params.id, { transaction });
-      
+      const voucher = await findByIdScoped(req, req.tenantModels.Voucher, req.params.id, { transaction });
+
       if (!voucher) {
         await transaction.rollback();
         return res.status(404).json({ message: 'Voucher not found' });
       }
-      
+
       if (voucher.status === 'cancelled') {
         await transaction.rollback();
         return res.status(400).json({ message: 'Voucher is already cancelled' });
@@ -800,7 +801,7 @@ module.exports = {
       }
 
       // Check if source voucher exists
-      const sourceVoucher = await req.tenantModels.Voucher.findByPk(req.params.id, {
+      const sourceVoucher = await findByIdScoped(req, req.tenantModels.Voucher, req.params.id, {
         include: [
           { model: req.tenantModels.VoucherItem, as: 'items' }
         ],
@@ -871,7 +872,7 @@ module.exports = {
       const { id } = req.params;
       
       // Find the voucher
-      const voucher = await req.tenantModels.Voucher.findByPk(id, { transaction });
+      const voucher = await findByIdScoped(req, req.tenantModels.Voucher, id, { transaction });
       
       if (!voucher) {
         await transaction.rollback();

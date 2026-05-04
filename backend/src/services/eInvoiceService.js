@@ -2,6 +2,7 @@ const crypto = require('crypto');
 const IRPClient = require('./irpClient');
 const { createApiClientFromCompany } = require('./thirdPartyApiClient');
 const logger = require('../utils/logger');
+const { findByIdScoped, findOneScoped } = require('../utils/scopedQueries');
 
 function nowIso() {
   return new Date().toISOString();
@@ -127,9 +128,10 @@ class EInvoiceService {
    * @returns {Promise<Object>} Retry response
    */
   async retryEInvoiceGeneration(eInvoiceId, ctx) {
-    const { tenantModels, company } = ctx;
+    const { tenantModels, company, tenant_id, company_id } = ctx;
+    const scopeCtx = { tenant_id: tenant_id || null, company_id: company_id || null };
 
-    const eInvoice = await tenantModels.EInvoice.findByPk(eInvoiceId, {
+    const eInvoice = await findByIdScoped(scopeCtx, tenantModels.EInvoice, eInvoiceId, {
       include: [{
         model: tenantModels.Voucher,
         as: 'voucher',
@@ -259,9 +261,10 @@ class EInvoiceService {
    * @returns {Promise<Object>} E-Invoice details
    */
   async getEInvoice(eInvoiceId, ctx) {
-    const { tenantModels } = ctx;
+    const { tenantModels, tenant_id, company_id } = ctx;
+    const scopeCtx = { tenant_id: tenant_id || null, company_id: company_id || null };
 
-    const eInvoice = await tenantModels.EInvoice.findByPk(eInvoiceId, {
+    const eInvoice = await findByIdScoped(scopeCtx, tenantModels.EInvoice, eInvoiceId, {
       include: [{
         model: tenantModels.Voucher,
         as: 'voucher',
@@ -630,10 +633,11 @@ class EInvoiceService {
    * @returns {Promise<Object>} E-Invoice response
    */
   async generateEInvoice(voucherId, ctx) {
-    const { tenantModels, company } = ctx;
+    const { tenantModels, company, tenant_id, company_id } = ctx;
+    const scopeCtx = { tenant_id: tenant_id || null, company_id: company_id || null };
 
     // Fetch voucher with all related data
-    const voucher = await tenantModels.Voucher.findByPk(voucherId, {
+    const voucher = await findByIdScoped(scopeCtx, tenantModels.Voucher, voucherId, {
       include: [
         { model: tenantModels.VoucherItem, as: 'voucher_items' },
         { model: tenantModels.Ledger, as: 'partyLedger' },
@@ -649,8 +653,9 @@ class EInvoiceService {
     }
 
     // Check if E-Invoice already exists
-    const existing = await tenantModels.EInvoice.findOne({ 
-      where: { voucher_id: voucherId, status: 'generated' } 
+    const existing = await findOneScoped(scopeCtx, tenantModels.EInvoice, {
+      voucher_id: voucherId,
+      status: 'generated',
     });
     if (existing) {
       return {
@@ -776,9 +781,10 @@ class EInvoiceService {
    * @returns {Promise<Object>} Cancellation response
    */
   async cancelEInvoiceById(eInvoiceId, reason, remarks = '', ctx) {
-    const { tenantModels, company } = ctx;
+    const { tenantModels, company, tenant_id, company_id } = ctx;
+    const scopeCtx = { tenant_id: tenant_id || null, company_id: company_id || null };
 
-    const eInvoice = await tenantModels.EInvoice.findByPk(eInvoiceId);
+    const eInvoice = await findByIdScoped(scopeCtx, tenantModels.EInvoice, eInvoiceId);
     if (!eInvoice) {
       throw new Error('E-Invoice not found');
     }
@@ -858,9 +864,10 @@ class EInvoiceService {
    * Cancel E-Invoice
    */
   async cancelEInvoice(ctx, voucherId, reason) {
-    const { tenantModels, company } = ctx;
+    const { tenantModels, company, tenant_id, company_id } = ctx;
+    const scopeCtx = { tenant_id: tenant_id || null, company_id: company_id || null };
 
-    const eInvoice = await tenantModels.EInvoice.findOne({ where: { voucher_id: voucherId } });
+    const eInvoice = await findOneScoped(scopeCtx, tenantModels.EInvoice, { voucher_id: voucherId });
     if (!eInvoice) {
       throw new Error('E-Invoice not found');
     }
