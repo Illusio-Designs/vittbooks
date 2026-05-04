@@ -1,6 +1,7 @@
 const jwt = require('jsonwebtoken');
 const redisClient = require('../config/redis');
 const logger = require('../utils/logger');
+const { JWT_SECRET } = require('../config/env');
 
 /**
  * JWT Authentication Middleware
@@ -20,7 +21,7 @@ const authenticate = async (req, res, next) => {
     const token = authHeader.substring(7); // Remove 'Bearer ' prefix
 
     // Verify token
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    const decoded = jwt.verify(token, JWT_SECRET);
 
     // Check if token is in Redis (session validation) - optional if Redis is not available
     const userId = decoded.user_id || decoded.id || decoded.sub;
@@ -36,21 +37,20 @@ const authenticate = async (req, res, next) => {
       }
     }
 
-    // If Redis is not available, skip session validation but log a warning
+    // If Redis is not available, fall back to JWT-only validation
+    // (graceful degradation when the cache is offline).
     if (!redisClient.isConnected()) {
       logger.debug('Redis not available - skipping session validation for user:', userId);
-      // Continue without session validation if Redis is down
-    } else if (redisClient.isConnected() && !session) {
-      // Only reject if Redis is connected but session doesn't exist
-      // However, if token is valid and not expired, we can still allow the request
-      // (session might have been cleared but token is still valid)
-      logger.warn(`Session not found in Redis for user ${userId}, jti ${decoded.jti}, but token is valid`);
-      // For now, allow the request if token is valid (session might have been cleared)
-      // Uncomment the following to enforce strict session validation:
-      // return res.status(401).json({
-      //   success: false,
-      //   message: 'Session expired or invalid',
-      // });
+    } else if (!session) {
+      // Redis is up but the session record is gone — the user logged out
+      // or an admin revoked the session. Reject the request.
+      logger.warn(
+        `Session not found for user ${userId}, jti ${decoded.jti} — rejecting request`
+      );
+      return res.status(401).json({
+        success: false,
+        message: 'Session expired or revoked. Please login again.',
+      });
     }
 
     // Attach user info to request (handle multiple field names)
@@ -96,7 +96,7 @@ const optionalAuth = async (req, res, next) => {
     const authHeader = req.headers.authorization;
     if (authHeader && authHeader.startsWith('Bearer ')) {
       const token = authHeader.substring(7);
-      const decoded = jwt.verify(token, process.env.JWT_SECRET);
+      const decoded = jwt.verify(token, JWT_SECRET);
       
       // If Redis is available, check session; otherwise just verify JWT
       if (redisClient.isConnected()) {

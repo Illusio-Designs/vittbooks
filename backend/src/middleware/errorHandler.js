@@ -80,14 +80,17 @@ const errorHandler = (err, req, res, next) => {
     });
   }
 
-  // Default error response
+  // Default error response. Stack traces are only revealed when NODE_ENV is
+  // explicitly "development" — any other value (including unset) is treated
+  // as production so we never leak internals by accident.
+  const isDevelopment = process.env.NODE_ENV === 'development';
   const statusCode = err.status || 500;
   const message = err.message || 'Internal server error';
 
   res.status(statusCode).json({
     success: false,
-    message: process.env.NODE_ENV === 'production' ? 'Internal server error' : message,
-    ...(process.env.NODE_ENV !== 'production' && { stack: err.stack }),
+    message: isDevelopment ? message : 'Internal server error',
+    ...(isDevelopment && { stack: err.stack }),
   });
 };
 

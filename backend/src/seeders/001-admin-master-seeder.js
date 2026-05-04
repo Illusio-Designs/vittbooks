@@ -13,16 +13,11 @@ const bcrypt = require('bcryptjs');
 const crypto = require('crypto');
 const uuid = require('uuid');
 
-// Encryption helper (must match the one in tenantProvisioningService)
+// Encryption helper (delegates to the canonical implementation so that
+// the seeder always uses the same on-disk format as the running app).
 function encrypt(text) {
-  const algorithm = 'aes-256-cbc';
-  // Use scryptSync to match tenantProvisioningService.encryptPassword method
-  const key = crypto.scryptSync(process.env.ENCRYPTION_KEY || 'default-key', 'salt', 32);
-  const iv = crypto.randomBytes(16);
-  const cipher = crypto.createCipheriv(algorithm, key, iv);
-  let encrypted = cipher.update(text, 'utf8', 'hex');
-  encrypted += cipher.final('hex');
-  return iv.toString('hex') + ':' + encrypted;
+  const tenantProvisioningService = require('../services/tenantProvisioningService');
+  return tenantProvisioningService.encryptPassword(text);
 }
 
 module.exports = {

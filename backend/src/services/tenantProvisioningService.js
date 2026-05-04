@@ -877,25 +877,53 @@ class TenantProvisioningService {
     return crypto.randomBytes(length).toString('base64').slice(0, length);
   }
 
+  /**
+   * Encrypt a tenant DB password.
+   *
+   * v2 format: "v2:<saltHex>:<ivHex>:<authTagHex>:<cipherHex>"
+   *   - AES-256-GCM (authenticated; tampering is detected on decrypt)
+   *   - Random per-record salt -> scrypt key derivation
+   *   - Random IV per record
+   *
+   * Old "<ivHex>:<cipherHex>" rows (AES-256-CBC, fixed salt) keep working
+   * via decryptPassword(); new writes always use v2.
+   */
   encryptPassword(password) {
-    // In production, use proper encryption
-    const algorithm = 'aes-256-cbc';
-    const key = crypto.scryptSync(process.env.ENCRYPTION_KEY || 'default-key', 'salt', 32);
-    const iv = crypto.randomBytes(16);
-    const cipher = crypto.createCipheriv(algorithm, key, iv);
-    let encrypted = cipher.update(password, 'utf8', 'hex');
-    encrypted += cipher.final('hex');
-    return iv.toString('hex') + ':' + encrypted;
+    const { ENCRYPTION_KEY } = require('../config/env');
+    const salt = crypto.randomBytes(16);
+    const key = crypto.scryptSync(ENCRYPTION_KEY, salt, 32);
+    const iv = crypto.randomBytes(12);
+    const cipher = crypto.createCipheriv('aes-256-gcm', key, iv);
+    const ciphertext = Buffer.concat([cipher.update(password, 'utf8'), cipher.final()]);
+    const authTag = cipher.getAuthTag();
+    return [
+      'v2',
+      salt.toString('hex'),
+      iv.toString('hex'),
+      authTag.toString('hex'),
+      ciphertext.toString('hex'),
+    ].join(':');
   }
 
   decryptPassword(encryptedPassword) {
-    const algorithm = 'aes-256-cbc';
-    const key = crypto.scryptSync(process.env.ENCRYPTION_KEY || 'default-key', 'salt', 32);
+    const { ENCRYPTION_KEY } = require('../config/env');
     const parts = encryptedPassword.split(':');
+    if (parts[0] === 'v2' && parts.length === 5) {
+      const [, saltHex, ivHex, tagHex, cipherHex] = parts;
+      const key = crypto.scryptSync(ENCRYPTION_KEY, Buffer.from(saltHex, 'hex'), 32);
+      const decipher = crypto.createDecipheriv('aes-256-gcm', key, Buffer.from(ivHex, 'hex'));
+      decipher.setAuthTag(Buffer.from(tagHex, 'hex'));
+      const plain = Buffer.concat([
+        decipher.update(Buffer.from(cipherHex, 'hex')),
+        decipher.final(),
+      ]);
+      return plain.toString('utf8');
+    }
+    // Legacy v1: "<ivHex>:<cipherHex>" — AES-256-CBC with fixed salt 'salt'.
+    const key = crypto.scryptSync(ENCRYPTION_KEY, 'salt', 32);
     const iv = Buffer.from(parts[0], 'hex');
-    const encrypted = parts[1];
-    const decipher = crypto.createDecipheriv(algorithm, key, iv);
-    let decrypted = decipher.update(encrypted, 'hex', 'utf8');
+    const decipher = crypto.createDecipheriv('aes-256-cbc', key, iv);
+    let decrypted = decipher.update(parts[1], 'hex', 'utf8');
     decrypted += decipher.final('utf8');
     return decrypted;
   }

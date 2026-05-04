@@ -2,9 +2,9 @@ const jwt = require('jsonwebtoken');
 const { v4: uuidv4 } = require('uuid');
 const redisClient = require('../config/redis');
 const logger = require('./logger');
+const { JWT_SECRET, JWT_REFRESH_SECRET } = require('../config/env');
 
-const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-change-in-production';
-const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || '24h';
+const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || '15m';
 const JWT_REFRESH_EXPIRES_IN = process.env.JWT_REFRESH_EXPIRES_IN || '7d';
 
 /**
@@ -142,22 +142,20 @@ async function refreshAccessToken(refreshToken) {
       return null;
     }
 
-    // Check if session exists (optional if Redis is not available)
     let session = null;
     try {
       session = await getSession(decoded.id, decoded.jti);
     } catch (error) {
-      // If Redis error, continue without session validation
       logger.warn('Redis error during refresh token validation:', error.message);
     }
 
-    // If Redis is connected but session doesn't exist, reject
+    // If Redis is connected but no session is recorded, treat the refresh
+    // token as revoked (logout / admin reset / rotation already consumed it).
     if (redisClient.isConnected() && !session) {
       logger.warn(`Session not found for refresh token, user ${decoded.id}, jti ${decoded.jti}`);
       return null;
     }
 
-    // Fetch user from database to get current role and other info
     const { User } = require('../models');
     const user = await User.findByPk(decoded.id);
     if (!user) {
@@ -165,25 +163,22 @@ async function refreshAccessToken(refreshToken) {
       return null;
     }
 
-    // Generate new access token with fresh user data
-    const newPayload = {
-      id: decoded.id,
-      user_id: decoded.id,
-      sub: decoded.id,
+    // Refresh token rotation: invalidate the old jti and issue a brand
+    // new pair. A leaked refresh token can therefore only be replayed once
+    // before being detected (legitimate user's next refresh will fail).
+    await revokeSession(decoded.id, decoded.jti);
+
+    const fresh = await signTokens({
+      id: user.id,
       tenant_id: decoded.tenant_id,
       company_id: session?.company_id || decoded.company_id || null,
-      role: user.role, // Use role from database
-      jti: decoded.jti,
-    };
-
-    const newAccessToken = jwt.sign(newPayload, JWT_SECRET, {
-      expiresIn: JWT_EXPIRES_IN,
+      role: user.role,
     });
 
     return {
-      accessToken: newAccessToken,
-      refreshToken: refreshToken, // Keep same refresh token
-      jti: decoded.jti,
+      accessToken: fresh.accessToken,
+      refreshToken: fresh.refreshToken,
+      jti: fresh.jti,
     };
   } catch (error) {
     logger.error('Failed to refresh token:', error);

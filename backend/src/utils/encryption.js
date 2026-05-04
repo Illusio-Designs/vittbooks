@@ -1,8 +1,11 @@
 const CryptoJS = require('crypto-js');
+const { PAYLOAD_ENCRYPTION_KEY: SECRET_KEY } = require('../config/env');
 
-// Use a strong secret key (store in .env)
-const SECRET_KEY =
-  process.env.PAYLOAD_ENCRYPTION_KEY || 'fintranzact-default-encryption-key-change-this-in-production';
+// NOTE: this AES-CBC-via-passphrase scheme is kept for backwards
+// compatibility with the existing frontend. Plan to migrate to
+// AES-256-GCM in a coordinated frontend+backend release. The env
+// validator in src/config/env.js guarantees SECRET_KEY is present;
+// no insecure fallback string here.
 
 /**
  * Encrypt payload

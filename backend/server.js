@@ -1,4 +1,6 @@
-require('dotenv').config();
+// Validate environment first — exits process with a clear error if any
+// required secret/config is missing or too weak.
+require('./src/config/env');
 const http = require('http');
 const sequelize = require('./src/config/database');
 const { initDatabase } = require('./src/scripts/initDatabase');
@@ -232,24 +234,9 @@ process.on('unhandledRejection', (err, promise) => {
     // Logger might not be initialized yet
   }
   
-  // If it's a WebAssembly memory error, try to recover
-  if (err && err.message && (err.message.includes('WebAssembly') || err.message.includes('Wasm')) && err.message.includes('Out of memory')) {
-    console.error('⚠️  WebAssembly memory error detected');
-    try {
-      if (logger && logger.error) {
-        logger.error('⚠️  WebAssembly memory error detected. This may be due to:');
-        logger.error('   1. Insufficient system memory');
-        logger.error('   2. Too many concurrent operations');
-        logger.error('   3. Memory fragmentation');
-        logger.error('   4. WebAssembly module (undici/llhttp) failed to allocate memory');
-      }
-    } catch (e) {}
-    
-    // Don't exit immediately for WebAssembly errors - let the server try to recover
-    return;
-  }
-  
-  // For other errors, log and exit
+  // Unhandled rejections leave the process in an unknown state. We log
+  // and exit so the orchestrator (PM2 / your platform) restarts a clean
+  // worker. Trying to "recover" in-place can mask data corruption.
   console.error('Fatal error, exiting...');
   setTimeout(() => {
     process.exit(1);

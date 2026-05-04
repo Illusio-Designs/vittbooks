@@ -20,15 +20,23 @@ module.exports = {
         return res.status(400).json({ error: 'Missing signature' });
       }
 
-      const body = JSON.stringify(req.body);
-      
-      // Verify webhook signature
+      // Verify the HMAC over the *raw* request bytes (captured by the
+      // express.json verify hook in src/app.js). Re-serialising req.body
+      // would not match Razorpay's signature.
+      if (!req.rawBody) {
+        logger.error('Razorpay webhook raw body unavailable — cannot verify signature');
+        return res.status(500).json({ error: 'Server misconfigured' });
+      }
+
       const expectedSignature = crypto
         .createHmac('sha256', webhookSecret)
-        .update(body)
+        .update(req.rawBody)
         .digest('hex');
 
-      if (razorpaySignature !== expectedSignature) {
+      // Constant-time comparison to avoid timing oracles.
+      const sigBuf = Buffer.from(razorpaySignature, 'utf8');
+      const expBuf = Buffer.from(expectedSignature, 'utf8');
+      if (sigBuf.length !== expBuf.length || !crypto.timingSafeEqual(sigBuf, expBuf)) {
         logger.warn('Invalid Razorpay webhook signature');
         return res.status(400).json({ error: 'Invalid signature' });
       }

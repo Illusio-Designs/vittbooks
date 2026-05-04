@@ -11,11 +11,18 @@ const resolveTenant = async (req, res, next) => {
   try {
     let tenant = null;
 
-    // Method 1: Get tenant from subdomain (for web requests)
-    const host = req.get('host');
-    if (host) {
+    // Method 1: Get tenant from subdomain. We only trust the Host header if
+    // it ends with our configured main domain — otherwise an attacker could
+    // craft a Host header to swap tenants. Unknown hosts simply fall through
+    // to JWT-based resolution below.
+    const host = (req.get('host') || '').split(':')[0];
+    const mainDomain =
+      process.env.MAIN_DOMAIN || process.env.NEXT_PUBLIC_MAIN_DOMAIN || '';
+    const hostIsTrusted =
+      host && mainDomain && (host === mainDomain || host.endsWith('.' + mainDomain));
+    if (hostIsTrusted) {
       const subdomain = host.split('.')[0];
-      if (subdomain && subdomain !== 'www' && subdomain !== 'api') {
+      if (subdomain && subdomain !== 'www' && subdomain !== 'api' && host !== mainDomain) {
         tenant = await TenantMaster.findOne({
           where: { subdomain, is_active: true },
         });
@@ -27,10 +34,14 @@ const resolveTenant = async (req, res, next) => {
       tenant = await TenantMaster.findByPk(req.tenant_id);
     }
 
-    // Method 3: Get tenant from query/body (for admin operations)
+    // Method 3: tenant id from query/body — ONLY honoured for platform
+    // admins. Regular users must come in via subdomain or via their JWT;
+    // accepting tenant_id from the request body for them would let any
+    // authenticated user point at any tenant they like.
     if (!tenant) {
-      const tenantId = req.query.tenant_id || req.body.tenant_id;
-      if (tenantId) {
+      const isPlatformAdmin = req.role === 'super_admin' || req.role === 'admin';
+      const tenantId = req.query.tenant_id || (req.body && req.body.tenant_id);
+      if (tenantId && isPlatformAdmin) {
         tenant = await TenantMaster.findByPk(tenantId);
       }
     }
@@ -94,37 +105,58 @@ const resolveTenant = async (req, res, next) => {
       return res.status(404).json({ success: false, message: 'Company not found' });
     }
 
-    // Use shared database if company doesn't have its own database
+    // Tenant rows carry their own DB host/port. To prevent a corrupted or
+    // attacker-influenced row from making the backend connect to an
+    // arbitrary MySQL server (and leak the configured backend creds),
+    // we validate the requested host against an allowlist.
+    const allowedHosts = (process.env.ALLOWED_DB_HOSTS || process.env.DB_HOST || 'localhost')
+      .split(',')
+      .map((h) => h.trim())
+      .filter(Boolean);
+
+    function ensureHostAllowed(host) {
+      if (!host) return;
+      if (!allowedHosts.includes(host)) {
+        const err = new Error(`Refusing to connect to disallowed DB host: ${host}`);
+        err.statusCode = 500;
+        throw err;
+      }
+    }
+
     let tenantConnection;
     if (company.db_provisioned && company.db_name && company.db_password) {
-      // Company has its own database - use it
       const tenantProvisioningService = require('../services/tenantProvisioningService');
       const dbPassword = tenantProvisioningService.decryptPassword(company.db_password);
+      const host = company.db_host || process.env.DB_HOST;
+      ensureHostAllowed(host);
       tenantConnection = await tenantConnectionManager.getConnection({
         id: company.id,
         db_name: company.db_name,
-        db_host: company.db_host,
-        db_port: company.db_port,
+        db_host: host,
+        db_port: company.db_port || parseInt(process.env.DB_PORT) || 3306,
         db_user: process.env.USE_SEPARATE_DB_USERS === 'true' ? company.db_user : process.env.DB_USER,
         db_password: process.env.USE_SEPARATE_DB_USERS === 'true' ? dbPassword : process.env.DB_PASSWORD,
       });
     } else {
-      // Company uses shared database - use tenant's database or default database
       const sharedDbName = tenant.db_name || process.env.DB_NAME || 'finvera_master';
+      const host = tenant.db_host || process.env.DB_HOST;
+      ensureHostAllowed(host);
       tenantConnection = await tenantConnectionManager.getConnection({
         id: tenant.id,
         db_name: sharedDbName,
-        db_host: tenant.db_host || process.env.DB_HOST || 'localhost',
+        db_host: host,
         db_port: tenant.db_port || parseInt(process.env.DB_PORT) || 3306,
         db_user: tenant.db_user || process.env.DB_USER,
-        db_password: tenant.db_password ? (() => {
-          try {
-            const tenantProvisioningService = require('../services/tenantProvisioningService');
-            return tenantProvisioningService.decryptPassword(tenant.db_password);
-          } catch (e) {
-            return process.env.DB_PASSWORD;
-          }
-        })() : process.env.DB_PASSWORD,
+        db_password: tenant.db_password
+          ? (() => {
+              try {
+                const tenantProvisioningService = require('../services/tenantProvisioningService');
+                return tenantProvisioningService.decryptPassword(tenant.db_password);
+              } catch (_e) {
+                return process.env.DB_PASSWORD;
+              }
+            })()
+          : process.env.DB_PASSWORD,
       });
     }
 
@@ -192,21 +224,9 @@ const requireTenant = (req, res, next) => {
   next();
 };
 
-/**
- * Decrypt database password
- */
-function decryptPassword(encryptedPassword) {
-  const crypto = require('crypto');
-  const algorithm = 'aes-256-cbc';
-  const key = crypto.scryptSync(process.env.ENCRYPTION_KEY || 'default-key', 'salt', 32);
-  const parts = encryptedPassword.split(':');
-  const iv = Buffer.from(parts[0], 'hex');
-  const encrypted = parts[1];
-  const decipher = crypto.createDecipheriv(algorithm, key, iv);
-  let decrypted = decipher.update(encrypted, 'hex', 'utf8');
-  decrypted += decipher.final('utf8');
-  return decrypted;
-}
+// Local DB-password decryption is delegated to tenantProvisioningService
+// (which knows about both legacy and v2 ciphertext formats). No insecure
+// fallback for the encryption key here.
 
 module.exports = {
   resolveTenant,

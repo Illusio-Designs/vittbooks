@@ -2,6 +2,7 @@ const { Server } = require('socket.io');
 const jwt = require('jsonwebtoken');
 const { User } = require('../models');
 const logger = require('../utils/logger');
+const { JWT_SECRET } = require('../config/env');
 
 let io = null;
 
@@ -74,7 +75,6 @@ function initSocketServer(server) {
         return next(new Error('Authentication token required'));
       }
 
-      const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-change-in-production';
       const decoded = jwt.verify(token, JWT_SECRET);
       
       // Verify user exists

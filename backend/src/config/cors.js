@@ -35,49 +35,52 @@ const ALLOWED_ORIGINS = [
 ].filter(Boolean); // Remove undefined values
 
 /**
- * Origin validation function
- * Supports environment variables and flexible domain matching
+ * Origin validation.
+ *
+ * Rules (in order):
+ *   1. No Origin header → allow (mobile apps, curl, server-to-server).
+ *   2. Origin is on the static allowlist → allow.
+ *   3. Origin's hostname equals or is a sub-domain of the main domain → allow.
+ *   4. Origin is localhost / 127.0.0.1 / 0.0.0.0 / *.localhost → allow.
+ *   5. Otherwise → reject (regardless of NODE_ENV).
+ *
+ * Notes:
+ * - We parse the Origin with `new URL(...)` and compare the *hostname* only.
+ *   This prevents "evil-mydomain.com.attacker.io"-style substring bypasses.
+ * - Non-production no longer auto-allows everything — set CORS_ORIGIN to
+ *   add legit dev origins. localhost is always permitted.
  */
 function validateOrigin(origin, callback) {
-  // Allow requests with no origin (mobile apps, curl, etc.)
-  if (!origin) {
-    return callback(null, true);
+  if (!origin) return callback(null, true);
+
+  let host;
+  try {
+    host = new URL(origin).hostname;
+  } catch (_err) {
+    return callback(new Error('Invalid Origin'));
   }
-  
-  // Check if origin is in allowed list
+
   if (ALLOWED_ORIGINS.includes(origin)) {
     return callback(null, true);
   }
-  
-  // Allow all localhost subdomains in development
-  const isLocalhost = /^https?:\/\/(localhost|127\.0\.0\.1|0\.0\.0\.0)(:\d+)?$/.test(origin) ||
-                      /^https?:\/\/.*\.localhost(:\d+)?$/.test(origin);
-  
+
+  if (host === mainDomain || host.endsWith('.' + mainDomain)) {
+    return callback(null, true);
+  }
+
+  const isLocalhost =
+    host === 'localhost' ||
+    host === '127.0.0.1' ||
+    host === '0.0.0.0' ||
+    host.endsWith('.localhost');
   if (isLocalhost) {
     return callback(null, true);
   }
-  
-  // Check if origin matches production domain pattern (with or without subdomain)
-  const isProductionDomain = new RegExp(`^https?://(www\\.)?(admin|client|api)?\\.?${mainDomain.replace(/\./g, '\\.')}$`).test(origin) ||
-                             origin.includes(mainDomain);
-  
-  if (isProductionDomain) {
-    return callback(null, true);
-  }
-  
-  // Allow in development mode (non-production)
-  if (process.env.NODE_ENV !== 'production') {
-    return callback(null, true);
-  }
-  
-  // Log rejected origin for debugging
+
   if (process.env.DEBUG_CORS === 'true' || process.env.NODE_ENV !== 'production') {
-    console.warn(`[CORS] Rejected origin: ${origin}`);
-    console.warn(`[CORS] Main domain: ${mainDomain}`);
-    console.warn(`[CORS] Allowed origins:`, ALLOWED_ORIGINS);
+    console.warn(`[CORS] Rejected origin: ${origin} (host=${host}, mainDomain=${mainDomain})`);
   }
-  
-  callback(new Error('Not allowed by CORS'));
+  return callback(new Error('Not allowed by CORS'));
 }
 
 /**
