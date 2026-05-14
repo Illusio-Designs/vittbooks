@@ -39,9 +39,9 @@ export default function App({ Component, pageProps }) {
           type="font/otf" 
           crossOrigin="anonymous"
         />
-        <link rel="icon" type="image/jpeg" href="/Fav%20Icon/Fav_Dark_JPG@4x-100.jpg" />
-        <link rel="shortcut icon" type="image/jpeg" href="/Fav%20Icon/Fav_Dark_JPG@4x-100.jpg" />
-        <link rel="apple-touch-icon" href="/Fav%20Icon/Fav_Dark_JPG@4x-100.jpg" />
+        <link rel="icon" type="image/svg+xml" href="/Fintranzact/Dark_SVG.svg" />
+        <link rel="shortcut icon" type="image/png" href="/Fintranzact/Favicon_Dark.png" />
+        <link rel="apple-touch-icon" href="/Fintranzact/Favicon_Dark.png" />
         <style dangerouslySetInnerHTML={{__html: `
           @font-face {
             font-family: 'Agency';

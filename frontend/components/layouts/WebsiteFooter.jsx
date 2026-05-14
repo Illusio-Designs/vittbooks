@@ -13,11 +13,11 @@ export default function WebsiteFooter() {
             <div className="lg:col-span-1">
               <Link href="/" className="flex items-center gap-2 mb-4">
                 <Image
-                  src="/Finallogo.png"
-                  alt="Finvera"
-                  width={3464}
-                  height={889}
-                  className="h-9 w-auto object-contain max-w-[160px]"
+                  src="/Fintranzact/Dark_SVG.svg"
+                  alt="Fintranzact"
+                  width={4042}
+                  height={933}
+                  className="h-10 w-auto object-contain max-w-[180px]"
                 />
               </Link>
               <p className="text-gray-600 text-sm leading-relaxed max-w-sm">
@@ -149,9 +149,9 @@ export default function WebsiteFooter() {
           <div className="mt-10 pt-6 border-t border-gray-100">
             <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
               <div className="text-sm text-gray-500">
-                <p>&copy; {year} Finvera. All rights reserved.</p>
+                <p>&copy; {year} Fintranzact. All rights reserved.</p>
                 <p className="mt-1">
-                  Managed by <span className="font-semibold text-gray-700">Finvera Solution LLP</span>
+                  Managed by <span className="font-semibold text-gray-700">Fintranzact Solution LLP</span>
                 </p>
               </div>
               <div className="flex flex-wrap items-center gap-x-6 gap-y-2 text-sm">
@@ -183,7 +183,7 @@ export default function WebsiteFooter() {
         className="select-none pointer-events-none mt-4 text-center font-extrabold tracking-tight text-gray-200/70 leading-none"
         style={{ fontSize: 'clamp(4rem, 18vw, 18rem)' }}
       >
-        Finvera
+        Fintranzact
       </div>
     </footer>
   );

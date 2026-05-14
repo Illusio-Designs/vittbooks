@@ -33,12 +33,12 @@ export default function WebsiteHeader() {
           {/* Logo */}
           <Link href="/" className="flex items-center">
             <div className="bg-white rounded-md px-3 py-2 flex items-center justify-center">
-              <Image 
-                src="/Finallogo.png" 
-                alt="Finvera" 
-                width={3464}
-                height={889}
-                className="h-12 w-auto object-contain max-w-[180px]"
+              <Image
+                src="/Fintranzact/Dark_SVG.svg"
+                alt="Fintranzact"
+                width={4042}
+                height={933}
+                className="h-12 w-auto object-contain max-w-[200px]"
                 priority
               />
             </div>
