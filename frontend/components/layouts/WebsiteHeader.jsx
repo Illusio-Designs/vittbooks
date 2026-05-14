@@ -28,16 +28,16 @@ export default function WebsiteHeader() {
 
   return (
     <header className="bg-white shadow-sm fixed top-0 left-0 right-0 z-50">
-      <nav className="container mx-auto px-8 md:px-12 lg:px-20 py-4">
-        <div className="flex justify-between items-center">
+      <nav className="container mx-auto px-8 md:px-12 lg:px-20 py-3">
+        <div className="flex justify-between items-center gap-6">
           {/* Logo */}
-          <Link href="/" className="flex items-center">
+          <Link href="/" className="flex items-center shrink-0">
             <Image
               src="/Fintranzact/Dark_SVG.svg"
               alt="Fintranzact"
               width={4042}
               height={933}
-              className="h-10 md:h-12 w-auto object-contain max-w-[220px] md:max-w-[260px]"
+              className="h-14 md:h-16 lg:h-20 w-auto object-contain"
               priority
             />
           </Link>

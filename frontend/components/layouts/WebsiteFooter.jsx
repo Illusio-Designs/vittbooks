@@ -17,7 +17,7 @@ export default function WebsiteFooter() {
                   alt="Fintranzact"
                   width={4042}
                   height={933}
-                  className="h-12 w-auto object-contain max-w-[240px]"
+                  className="h-14 md:h-16 w-auto object-contain"
                 />
               </Link>
               <p className="text-gray-600 text-sm leading-relaxed max-w-sm">
