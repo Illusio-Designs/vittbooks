@@ -1,0 +1,172 @@
+name: Deploy backend to FTP
+
+# Auto-deploys backend/ -> /Backend/ on the production FTP server every time
+# a commit on main touches backend code. Pushes that only edit /frontend
+# or /app are skipped (paths filter) so we don't waste a deploy slot.
+#
+# What gets uploaded:
+#   backend/src/**
+#   backend/server.js
+#   backend/ecosystem.config.js
+#   backend/package.json
+#   backend/templates/**
+#   backend/config/**
+#
+# What is NEVER uploaded:
+#   .env / .env.*       - the server has its own production secrets
+#   package-lock.json   - server's lock-state is owned by cPanel nodevenv
+#   node_modules/       - server's is a symlink into cPanel nodevenv
+#   .htaccess           - Apache routing config; production-managed
+#   scripts/ftp-*.js    - local-only deploy helpers
+#   tests, .git, .vscode, logs, tmp, coverage, .well-known
+#
+# Required GitHub repo secrets - Settings -> Secrets and variables -> Actions:
+#   FTP_SERVER         -> ftp.example.com
+#   FTP_USERNAME       -> (cPanel account)
+#   FTP_PASSWORD       -> (cPanel password)
+#   FTP_SERVER_DIR     -> /Backend/                  (optional, defaults below)
+#   HEALTH_CHECK_URL   -> https://api.example.com/health  (optional)
+#
+# Auto-restart: after the upload finishes we touch
+# <FTP_SERVER_DIR>/tmp/restart.txt - Phusion Passenger (cPanel's Node
+# runtime) recycles the process on the next request once that file's
+# mtime changes. No extra secret required.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'backend/**'
+      - '.github/workflows/backend-deploy-ftp.yml'
+  workflow_dispatch:
+
+# Only one deploy at a time against the same FTP host.
+concurrency:
+  group: backend-ftp-deploy
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # Quick syntax sanity-check before we waste an upload run on
+      # broken JS. The backend isn't built - just shipped as-is.
+      - name: Setup Node 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Syntax-check backend source
+        working-directory: backend
+        run: |
+          set -e
+          # Walk every .js file in src/ and node --check it.
+          find src -name '*.js' -type f -print0 | xargs -0 -n1 node --check
+          node --check server.js
+          echo "all .js files parse"
+
+      - name: Sync to FTP server (FTPS, port 21)
+        uses: SamKirkland/FTP-Deploy-Action@v4.3.5
+        with:
+          server: ${{ secrets.FTP_SERVER }}
+          username: ${{ secrets.FTP_USERNAME }}
+          password: ${{ secrets.FTP_PASSWORD }}
+          # Explicit FTPS - same port (21), upgrades to TLS via AUTH TLS.
+          protocol: ftps
+          port: 21
+          local-dir: ./backend/
+          server-dir: ${{ secrets.FTP_SERVER_DIR || '/Backend/' }}
+          # The action uploads local-dir contents (after this exclude
+          # filter) into server-dir. Diff-based on the second run onwards
+          # via a sync-state file the action keeps on the server, so
+          # subsequent deploys only upload changed files.
+          exclude: |
+            **/.git*
+            **/.git*/**
+            **/.github/**
+            **/.vscode/**
+            **/.idea/**
+            **/.DS_Store
+            **/Thumbs.db
+            **/.env
+            **/.env.*
+            **/.envrc
+            **/node_modules/**
+            **/package-lock.json
+            **/.htaccess
+            **/.well-known/**
+            **/scripts/ftp-*.js
+            **/scripts/test.js
+            **/__tests__/**
+            **/test/**
+            **/tests/**
+            **/*.test.js
+            **/*.spec.js
+            **/coverage/**
+            **/.nyc_output/**
+            **/.eslintcache
+            **/.cache/**
+            **/tmp/**
+            **/logs/**
+            **/*.log
+            **/.seed-state.json
+            **/DEPLOY_TEST.txt
+
+      # Auto-restart the Node app via Phusion Passenger.
+      # cPanel's "Setup Node.js App" runs every Node app under Passenger,
+      # which watches each app's tmp/restart.txt file. Updating its
+      # mtime -> the next inbound request triggers a graceful worker
+      # recycle. No extra secret needed.
+      - name: Trigger Passenger restart
+        working-directory: backend
+        env:
+          FTP_HOST: ${{ secrets.FTP_SERVER }}
+          FTP_PORT: '21'
+          FTP_USER: ${{ secrets.FTP_USERNAME }}
+          FTP_PASSWORD: ${{ secrets.FTP_PASSWORD }}
+          FTP_SECURE: explicit
+          FTP_BASE_DIR: ${{ secrets.FTP_SERVER_DIR || '/Backend/' }}
+        run: |
+          # basic-ftp + dotenv aren't shipped with the production app;
+          # install transiently for this one step. --no-save keeps
+          # package.json clean.
+          npm install --no-save --no-audit --no-fund --silent basic-ftp dotenv
+          node scripts/ftp-restart.js
+
+      - name: Verify the new build is live
+        env:
+          HEALTH_CHECK_URL: ${{ secrets.HEALTH_CHECK_URL }}
+        run: |
+          if [ -z "$HEALTH_CHECK_URL" ]; then
+            echo "HEALTH_CHECK_URL secret not set - skipping health probe."
+            exit 0
+          fi
+          # Passenger recycles on the next request, so a curl after upload
+          # both verifies HTTP reachability AND triggers the restart.
+          echo "Pinging $HEALTH_CHECK_URL to confirm the new code is serving..."
+          for i in 1 2 3 4 5; do
+            if curl -fsS --max-time 10 "$HEALTH_CHECK_URL"; then
+              echo ""
+              echo "Backend healthy."
+              exit 0
+            fi
+            echo "  attempt $i failed, retrying in 5s..."
+            sleep 5
+          done
+          echo "::warning::$HEALTH_CHECK_URL didn't respond within 5 attempts. Check cPanel -> Setup Node.js App for errors."
+          # Don't fail the whole workflow - upload succeeded, the user can
+          # check manually. Restart-then-warm-up sometimes takes >30s on
+          # cold cPanel hosts.
+
+      - name: Done
+        run: |
+          echo "Backend deployed to ${{ secrets.FTP_SERVER_DIR || '/Backend/' }}"
+          echo "App restart triggered via tmp/restart.txt"
+          if [ -n "${{ secrets.HEALTH_CHECK_URL }}" ]; then
+            echo "Verify anytime: curl ${{ secrets.HEALTH_CHECK_URL }}"
+          fi
