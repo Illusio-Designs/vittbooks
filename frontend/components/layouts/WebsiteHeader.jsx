@@ -32,16 +32,14 @@ export default function WebsiteHeader() {
         <div className="flex justify-between items-center">
           {/* Logo */}
           <Link href="/" className="flex items-center">
-            <div className="bg-white rounded-md px-3 py-2 flex items-center justify-center">
-              <Image
-                src="/Fintranzact/Dark_SVG.svg"
-                alt="Fintranzact"
-                width={4042}
-                height={933}
-                className="h-12 w-auto object-contain max-w-[200px]"
-                priority
-              />
-            </div>
+            <Image
+              src="/Fintranzact/Dark_SVG.svg"
+              alt="Fintranzact"
+              width={4042}
+              height={933}
+              className="h-10 md:h-12 w-auto object-contain max-w-[220px] md:max-w-[260px]"
+              priority
+            />
           </Link>
 
           {/* Desktop Navigation */}
