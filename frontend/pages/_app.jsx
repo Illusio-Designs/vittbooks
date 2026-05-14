@@ -2,6 +2,7 @@ import '../styles/globals.css';
 import { AuthProvider } from '../contexts/AuthContext';
 import { WebSocketProvider } from '../contexts/WebSocketContext';
 import ElectronWrapper from '../components/electron/ElectronWrapper';
+import CookieConsent from '../components/CookieConsent';
 import Head from 'next/head';
 import { useEffect, useState } from 'react';
 import { initDesktopNotifications } from '../lib/desktopNotificationService';
@@ -25,6 +26,7 @@ export default function App({ Component, pageProps }) {
     <AuthProvider>
       <WebSocketProvider>
         <Component {...pageProps} />
+        <CookieConsent />
       </WebSocketProvider>
     </AuthProvider>
   );
