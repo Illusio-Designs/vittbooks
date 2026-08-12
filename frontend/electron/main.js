@@ -326,8 +326,8 @@ function createMenu() {
           click: () => {
             dialog.showMessageBox(mainWindow, {
               type: 'info',
-              title: 'About Finvera Client',
-              message: 'Finvera Client v1.0.0',
+              title: 'About Fintranzact Client',
+              message: 'Fintranzact Client v1.0.0',
               detail: 'Complete GST & Accounting Software for Businesses'
             });
           }

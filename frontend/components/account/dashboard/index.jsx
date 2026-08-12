@@ -51,7 +51,7 @@ export function SearchBarGlobal({ value, onChange, placeholder = 'Search…' }) 
 
 export function WelcomeBanner({ title = 'Welcome back', subtitle, right }) {
   return (
-    <div className="rounded-xl bg-finvera-gradient text-white p-6 shadow-sm">
+    <div className="rounded-xl bg-fintranzact-gradient text-white p-6 shadow-sm">
       <div className="flex items-start justify-between gap-6">
         <div>
           <div className="text-2xl font-semibold">{title}</div>

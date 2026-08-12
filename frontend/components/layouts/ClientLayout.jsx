@@ -139,7 +139,7 @@ const getClientMenuItems = () => [
   },
 ];
 
-export default function ClientLayout({ children, title = 'Client Portal - Finvera' }) {
+export default function ClientLayout({ children, title = 'Client Portal - Fintranzact' }) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   // Load sidebar collapsed state from localStorage, default to false
   const [sidebarCollapsed, setSidebarCollapsed] = useState(() => {

@@ -114,7 +114,7 @@ const ElectronHelpModal = () => {
               {/* App Info */}
               <div className="mt-6 pt-6 border-t">
                 <div className="text-center text-sm text-gray-500">
-                  <p>Finvera Client Desktop App v1.0.0</p>
+                  <p>Fintranzact Client Desktop App v1.0.0</p>
                   <p className="mt-1">
                     For support, visit{' '}
                     <button

@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { FiMinus, FiSquare, FiX, FiMaximize2 } from 'react-icons/fi';
 
-const ElectronTitleBar = ({ title = "Finvera Client" }) => {
+const ElectronTitleBar = ({ title = "Fintranzact Client" }) => {
   const [isElectron, setIsElectron] = useState(false);
   const [isMaximized, setIsMaximized] = useState(false);
 

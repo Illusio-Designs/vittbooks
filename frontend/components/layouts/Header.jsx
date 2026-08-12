@@ -101,10 +101,10 @@ export default function Header({ onMenuClick, title, actions }) {
           {/* Logo */}
           <div className="bg-white rounded-md px-3 py-2 flex items-center justify-center">
             <Image 
-              src="/Finallogo.png" 
-              alt="Finverra" 
-              width={3464}
-              height={889}
+              src="/Finallogo.png"
+              alt="Fintranzact"
+              width={4042}
+              height={933}
               className="h-10 w-auto object-contain max-w-[180px]"
               priority
             />

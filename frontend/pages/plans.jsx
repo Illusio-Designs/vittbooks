@@ -60,7 +60,7 @@ export default function PlansPage() {
   }, []);
 
   const getClientRegisterUrl = () => {
-    return clientRegisterUrl || 'https://client.finvera.solutions/register';
+    return clientRegisterUrl || 'https://client.fintranzact.com/register';
   };
 
   const formatPrice = (price, currency = 'INR') => {
@@ -85,7 +85,7 @@ export default function PlansPage() {
   return (
     <>
       <Head>
-        <title>Plans - Finvera | Affordable Accounting Solutions</title>
+        <title>Plans - Fintranzact | Affordable Accounting Solutions</title>
         <meta name="description" content="Choose the perfect plan for your business. Transparent pricing with no hidden fees." />
       </Head>
 

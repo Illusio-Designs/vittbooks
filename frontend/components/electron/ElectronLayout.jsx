@@ -45,7 +45,7 @@ const ElectronLayout = ({ children }) => {
         <div className={`${sidebarCollapsed ? 'w-16' : 'w-64'} bg-white shadow-lg transition-all duration-300`}>
           <div className="p-4 border-b flex items-center justify-between">
             {!sidebarCollapsed && (
-              <h1 className="text-xl font-bold text-gray-800">Finvera Client</h1>
+              <h1 className="text-xl font-bold text-gray-800">Fintranzact Client</h1>
             )}
             <button
               onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
@@ -84,7 +84,7 @@ const ElectronLayout = ({ children }) => {
           <div className="bg-white border-b px-4 py-2 flex items-center justify-between">
             <div className="flex items-center space-x-4">
               <h2 className="text-lg font-semibold text-gray-800">
-                {navigationItems.find(item => item.path === router.pathname)?.name || 'Finvera Client'}
+                {navigationItems.find(item => item.path === router.pathname)?.name || 'Fintranzact Client'}
               </h2>
             </div>
             <div className="flex items-center space-x-4">

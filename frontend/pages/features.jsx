@@ -33,7 +33,7 @@ export default function FeaturesPage() {
   }, []);
   
   const getClientUrl = () => {
-    return clientUrl || 'https://client.finvera.solutions';
+    return clientUrl || 'https://client.fintranzact.com';
   };
   const mainFeatures = [
     {
@@ -248,8 +248,8 @@ export default function FeaturesPage() {
   return (
     <>
       <Head>
-        <title>Features - Finvera | Complete Accounting Solution</title>
-        <meta name="description" content="Discover all the powerful features of Finvera - GST filing, e-invoicing, accounting, and more" />
+        <title>Features - Fintranzact | Complete Accounting Solution</title>
+        <meta name="description" content="Discover all the powerful features of Fintranzact - GST filing, e-invoicing, accounting, and more" />
       </Head>
 
       <div className="min-h-screen bg-white">
@@ -336,7 +336,7 @@ export default function FeaturesPage() {
                 Additional Benefits
               </ScrollFloat>
               <p className="text-base text-gray-600 max-w-3xl mx-auto">
-                More reasons why thousands of businesses trust Finvera
+                More reasons why thousands of businesses trust Fintranzact
               </p>
             </div>
             <AnimatedCardGrid
@@ -380,7 +380,7 @@ export default function FeaturesPage() {
                     Ready to Get Started?
                   </ScrollFloat>
                   <p className="text-base text-gray-600 mb-8">
-                    Join thousands of businesses using Finvera to streamline their accounting
+                    Join thousands of businesses using Fintranzact to streamline their accounting
                   </p>
                   <div className="flex flex-col sm:flex-row gap-4 justify-center">
                     <a

@@ -2,7 +2,7 @@ const { execSync } = require('child_process');
 const fs = require('fs');
 const path = require('path');
 
-console.log('🚀 Building Finvera Client Desktop App...\n');
+console.log('🚀 Building Fintranzact Client Desktop App...\n');
 
 try {
   // Set environment for Electron build

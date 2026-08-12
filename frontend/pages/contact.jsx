@@ -13,8 +13,8 @@ export default function ContactPage() {
   return (
     <>
       <Head>
-        <title>Contact Us - Finvera | Get in Touch</title>
-        <meta name="description" content="Contact Finvera for support, sales inquiries, or general questions" />
+        <title>Contact Us - Fintranzact | Get in Touch</title>
+        <meta name="description" content="Contact Fintranzact for support, sales inquiries, or general questions" />
       </Head>
 
       <div className="min-h-screen bg-white">
@@ -65,8 +65,8 @@ export default function ContactPage() {
                       </div>
                       <div>
                         <div className="font-bold text-gray-900 mb-1">Email</div>
-                        <div className="text-gray-600 text-sm">support@finvera.com</div>
-                        <div className="text-gray-600 text-sm">sales@finvera.com</div>
+                        <div className="text-gray-600 text-sm">support@fintranzact.com</div>
+                        <div className="text-gray-600 text-sm">sales@fintranzact.com</div>
                         <div className="text-xs text-gray-500 mt-1">Response within 24 hours</div>
                       </div>
                     </div>

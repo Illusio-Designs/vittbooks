@@ -8,8 +8,8 @@ export default function PrivacyPage() {
   return (
     <>
       <Head>
-        <title>Privacy Policy - Finvera</title>
-        <meta name="description" content="Finvera Privacy Policy - How we collect, use, and protect your data" />
+        <title>Privacy Policy - Fintranzact</title>
+        <meta name="description" content="Fintranzact Privacy Policy - How we collect, use, and protect your data" />
       </Head>
 
       <div className="min-h-screen bg-white">
@@ -40,7 +40,7 @@ export default function PrivacyPage() {
                   1. Introduction
                 </ScrollFloat>
                 <p className="text-base text-gray-600 leading-relaxed font-normal">
-                    Finvera (&quot;we&quot;, &quot;our&quot;, or &quot;us&quot;) is committed to protecting your privacy. This Privacy Policy explains 
+                    Fintranzact (&quot;we&quot;, &quot;our&quot;, or &quot;us&quot;) is committed to protecting your privacy. This Privacy Policy explains 
                     how we collect, use, disclose, and safeguard your information when you use our accounting software 
                     and services.
                   </p>
@@ -297,7 +297,7 @@ export default function PrivacyPage() {
                 </ScrollFloat>
                 <p className="text-base text-gray-600 leading-relaxed font-normal">
                   If you have questions about this Privacy Policy, wish to exercise your rights, or want to withdraw 
-                  consent for data sharing, please contact us at privacy@finvera.com
+                  consent for data sharing, please contact us at privacy@fintranzact.com
                 </p>
               </section>
             </div>

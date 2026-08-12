@@ -13,8 +13,8 @@ export default function AboutPage() {
   return (
     <>
       <Head>
-        <title>About Us - Finvera | Your Trustable Accounting Partner</title>
-        <meta name="description" content="Learn about Finvera - your trusted accounting partner providing comprehensive accounting solutions" />
+        <title>About Us - Fintranzact | Your Trustable Accounting Partner</title>
+        <meta name="description" content="Learn about Fintranzact - your trusted accounting partner providing comprehensive accounting solutions" />
       </Head>
 
       <div className="min-h-screen bg-white">
@@ -25,7 +25,7 @@ export default function AboutPage() {
           <div className="container mx-auto px-8 md:px-12 lg:px-20">
             <div className="max-w-4xl mx-auto text-center">
               <h1 className="text-3xl md:text-4xl font-medium text-gray-900 mb-5">
-                About Finvera
+                About Fintranzact
               </h1>
               <p className="text-base text-gray-600 max-w-3xl mx-auto">
                 Your Trustable Accounting Partner. We&apos;re dedicated to providing comprehensive accounting solutions 
@@ -53,7 +53,7 @@ export default function AboutPage() {
                     Our Mission
                   </ScrollFloat>
                   <p className="text-base text-gray-600 leading-relaxed mb-4">
-                    At Finvera, our mission is to simplify accounting and financial management for businesses of all sizes. 
+                    At Fintranzact, our mission is to simplify accounting and financial management for businesses of all sizes. 
                     We believe that every business deserves access to professional-grade accounting tools that are both 
                     powerful and easy to use.
                   </p>
@@ -106,7 +106,7 @@ export default function AboutPage() {
               </ScrollFloat>
               <p className="text-base text-gray-600 leading-relaxed">
                 We recognized that many businesses struggle with complex accounting processes, GST compliance, 
-                and financial reporting. Finvera was created to solve these challenges by providing an 
+                and financial reporting. Fintranzact was created to solve these challenges by providing an 
                 all-in-one platform that simplifies accounting while ensuring compliance with Indian tax regulations.
               </p>
             </div>

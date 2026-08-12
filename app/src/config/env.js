@@ -195,7 +195,7 @@ export const validateConfig = () => {
 export const logConfig = () => {
   if (!isDevelopment() || !DEBUG_CONFIG.DEBUG_API_CALLS) return;
   
-  console.log('📱 Finvera Mobile App Configuration:');
+  console.log('📱 Fintranzact Mobile App Configuration:');
   console.log('🌐 API URL:', API_CONFIG.API_URL);
   console.log('📁 Uploads URL:', API_CONFIG.UPLOADS_BASE_URL);
   console.log('🏢 Environment:', APP_CONFIG.ENVIRONMENT);

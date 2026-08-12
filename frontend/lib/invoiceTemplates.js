@@ -21,7 +21,7 @@ export const PRINT_SIZES = {
 export const TEMPLATES = [
   {
     id: TEMPLATE_TYPES.SIMPLE_GST_1,
-    name: 'Finvera GST Invoicing 1',
+    name: 'Fintranzact GST Invoicing 1',
     description: 'Basic professional template with clean layout',
     category: 'Business',
     previewImage: '/Invoice/Simple GST Invoicing 1.webp',
@@ -29,7 +29,7 @@ export const TEMPLATES = [
   },
   {
     id: TEMPLATE_TYPES.SIMPLE_GST_1_VARIANT_1,
-    name: 'Finvera GST Invoicing 1 - Variant 1',
+    name: 'Fintranzact GST Invoicing 1 - Variant 1',
     description: 'Clean layout with modern styling',
     category: 'Business',
     previewImage: '/Invoice/Simple GST Invoicing 1 (1).webp',
@@ -37,7 +37,7 @@ export const TEMPLATES = [
   },
   {
     id: TEMPLATE_TYPES.SIMPLE_GST_1_VARIANT_2,
-    name: 'Finvera GST Invoicing 1 - Variant 2',
+    name: 'Fintranzact GST Invoicing 1 - Variant 2',
     description: 'Professional format with enhanced spacing',
     category: 'Business',
     previewImage: '/Invoice/Simple GST Invoicing 1 (2).webp',
@@ -45,7 +45,7 @@ export const TEMPLATES = [
   },
   {
     id: TEMPLATE_TYPES.SIMPLE_GST_1_VARIANT_3,
-    name: 'Finvera GST Invoicing 1 - Variant 3',
+    name: 'Fintranzact GST Invoicing 1 - Variant 3',
     description: 'Compact design for detailed invoices',
     category: 'Compact',
     previewImage: '/Invoice/Simple GST Invoicing 1 (3).webp',
@@ -53,7 +53,7 @@ export const TEMPLATES = [
   },
   {
     id: TEMPLATE_TYPES.SIMPLE_GST_TEMP_2,
-    name: 'Finvera GST Invoicing Template 2',
+    name: 'Fintranzact GST Invoicing Template 2',
     description: 'Alternative style with different layout',
     category: 'Modern',
     previewImage: '/Invoice/Simple GST Invoicing temp 2.webp',

@@ -3,7 +3,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/router';
 import { useAuth } from '../contexts/AuthContext';
 
-export default function Layout({ children, title = 'Finvera - Accounting Software' }) {
+export default function Layout({ children, title = 'Fintranzact - Accounting Software' }) {
   const { user, logout, isAuthenticated } = useAuth();
   const router = useRouter();
 
@@ -38,8 +38,8 @@ export default function Layout({ children, title = 'Finvera - Accounting Softwar
                   <div className="bg-white rounded-md px-3 py-2 flex items-center justify-center">
                     {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img 
-                      src="/Finallogo.png" 
-                      alt="Finvera" 
+                      src="/Finallogo.png"
+                      alt="Fintranzact"
                       className="h-10 w-auto object-contain max-w-[180px]"
                     />
                   </div>

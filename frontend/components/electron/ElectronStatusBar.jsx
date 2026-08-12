@@ -44,7 +44,7 @@ const ElectronStatusBar = () => {
       '/client/tds': 'TDS',
       '/client/settings': 'Settings',
     };
-    return pathMap[router.pathname] || 'Finvera Client';
+    return pathMap[router.pathname] || 'Fintranzact Client';
   };
 
   return (

@@ -191,7 +191,7 @@ export default function ReviewPage() {
                 <p className="text-gray-600 mb-6">
                   {existingReview
                     ? 'Update your review below. Changes will require admin approval before being published.'
-                    : 'Help us improve by sharing your experience with Finvera. Your review will be published after admin approval.'}
+                    : 'Help us improve by sharing your experience with Fintranzact. Your review will be published after admin approval.'}
                 </p>
 
                 {existingReview && (
@@ -263,7 +263,7 @@ export default function ReviewPage() {
                     onChange={handleInputChange}
                     error={errors.comment}
                     rows={6}
-                    placeholder="Share your experience with Finvera..."
+                    placeholder="Share your experience with Fintranzact..."
                   />
 
                   {/* Reviewer Name */}

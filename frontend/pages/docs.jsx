@@ -10,7 +10,7 @@ export default function DocsPage() {
     {
       icon: FiFileText,
       title: 'Getting Started',
-      description: 'Learn the basics of using Finvera',
+      description: 'Learn the basics of using Fintranzact',
       topics: ['Account Setup', 'First Steps', 'Dashboard Overview']
     },
     {
@@ -34,7 +34,7 @@ export default function DocsPage() {
     {
       icon: FiCode,
       title: 'API Documentation',
-      description: 'Integrate Finvera with your systems',
+      description: 'Integrate Fintranzact with your systems',
       topics: ['Authentication', 'Endpoints', 'Webhooks']
     },
     {
@@ -48,8 +48,8 @@ export default function DocsPage() {
   return (
     <>
       <Head>
-        <title>Documentation - Finvera | User Guides & API Docs</title>
-        <meta name="description" content="Complete documentation for Finvera accounting platform" />
+        <title>Documentation - Fintranzact | User Guides & API Docs</title>
+        <meta name="description" content="Complete documentation for Fintranzact accounting platform" />
       </Head>
 
       <div className="min-h-screen bg-white">
@@ -63,7 +63,7 @@ export default function DocsPage() {
                 Documentation
               </h1>
               <p className="text-base text-gray-600 max-w-3xl mx-auto">
-                Complete guides, tutorials, and API documentation to help you get the most out of Finvera.
+                Complete guides, tutorials, and API documentation to help you get the most out of Fintranzact.
               </p>
             </div>
           </div>
@@ -129,12 +129,12 @@ export default function DocsPage() {
                 Video Tutorials
               </ScrollFloat>
               <p className="text-base text-gray-600 max-w-3xl mx-auto">
-                Learn Finvera with step-by-step video guides
+                Learn Fintranzact with step-by-step video guides
               </p>
             </div>
             <div className="grid md:grid-cols-3 gap-6 max-w-7xl mx-auto">
               {[
-                { title: 'Getting Started', desc: 'Learn the basics of Finvera', duration: '5 min' },
+                { title: 'Getting Started', desc: 'Learn the basics of Fintranzact', duration: '5 min' },
                 { title: 'Creating Your First Invoice', desc: 'Step-by-step invoice creation', duration: '8 min' },
                 { title: 'GST Filing Guide', desc: 'How to file GST returns', duration: '12 min' },
                 { title: 'E-Invoice Generation', desc: 'Generate e-invoices with IRN', duration: '10 min' },

@@ -148,8 +148,8 @@ export default function UseCasesPage() {
   return (
     <>
       <Head>
-        <title>Use Cases - Finvera | Solutions for Every Business</title>
-        <meta name="description" content="Discover how Finvera helps retailers, distributors, startups, freelancers, and service providers manage their accounting." />
+        <title>Use Cases - Fintranzact | Solutions for Every Business</title>
+        <meta name="description" content="Discover how Fintranzact helps retailers, distributors, startups, freelancers, and service providers manage their accounting." />
       </Head>
 
       <div className="min-h-screen bg-white">
@@ -163,7 +163,7 @@ export default function UseCasesPage() {
                 Perfect for Your Business
               </h1>
               <p className="text-base text-gray-600 max-w-3xl mx-auto">
-                Quick invoicing for retailers, distributors, startups, freelancers, and service providers using Finvera invoicing app.
+                Quick invoicing for retailers, distributors, startups, freelancers, and service providers using Fintranzact invoicing app.
               </p>
             </div>
           </div>
@@ -265,7 +265,7 @@ export default function UseCasesPage() {
                           </div>
                           <h3 className="text-sm font-bold text-gray-900 mb-2">Get Started Today</h3>
                           <p className="text-gray-600 text-xs mb-4 leading-relaxed">
-                            Start managing your {useCase.name.toLowerCase()} business with Finvera
+                            Start managing your {useCase.name.toLowerCase()} business with Fintranzact
                           </p>
                           <a
                             href="/register"

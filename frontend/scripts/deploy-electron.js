@@ -2,7 +2,7 @@ const { execSync } = require('child_process');
 const fs = require('fs');
 const path = require('path');
 
-console.log('🚀 Deploying Finvera Client Desktop App...\n');
+console.log('🚀 Deploying Fintranzact Client Desktop App...\n');
 
 const platform = process.platform;
 const arch = process.arch;

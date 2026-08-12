@@ -108,7 +108,7 @@ export default function ClientRegister() {
               Create Account
             </h2>
             <p className="text-center text-sm text-gray-600">
-              Sign up for your Finvera account
+              Sign up for your Fintranzact account
             </p>
           </div>
           

@@ -7,7 +7,7 @@ export default function Chatbot() {
   const [messages, setMessages] = useState([
     {
       id: 1,
-      text: "Hello! 👋 Welcome to Finvera. I&apos;m here to help you with any questions about our accounting software. How can I assist you today?",
+      text: "Hello! 👋 Welcome to Fintranzact. I&apos;m here to help you with any questions about our accounting software. How can I assist you today?",
       sender: 'bot',
       timestamp: new Date(),
     },
@@ -71,7 +71,7 @@ export default function Chatbot() {
     }
 
     if (message.includes('gst') || message.includes('tax')) {
-      return "Finvera offers comprehensive GST filing features including GSTR-1 and GSTR-3B generation, e-invoicing with IRN, and automatic GST calculations. All features are fully compliant with Indian tax regulations.";
+      return "Fintranzact offers comprehensive GST filing features including GSTR-1 and GSTR-3B generation, e-invoicing with IRN, and automatic GST calculations. All features are fully compliant with Indian tax regulations.";
     }
 
     if (message.includes('trial') || message.includes('free') || message.includes('demo')) {
@@ -79,23 +79,23 @@ export default function Chatbot() {
     }
 
     if (message.includes('feature') || message.includes('what can') || message.includes('capabilities')) {
-      return "Finvera offers complete accounting solutions including:\n• GST filing (GSTR-1, GSTR-3B)\n• E-invoicing with IRN\n• Financial reports (Balance Sheet, P&L, Trial Balance)\n• Ledger management\n• Inventory management\n• TDS management\n\nWould you like to know more about any specific feature?";
+      return "Fintranzact offers complete accounting solutions including:\n• GST filing (GSTR-1, GSTR-3B)\n• E-invoicing with IRN\n• Financial reports (Balance Sheet, P&L, Trial Balance)\n• Ledger management\n• Inventory management\n• TDS management\n\nWould you like to know more about any specific feature?";
     }
 
     if (message.includes('support') || message.includes('help') || message.includes('contact')) {
-      return "Our support team is available to help you! You can reach us at:\n• Email: support@finvera.com\n• Phone: +91 84900 9684\n• Address: 212, 2nd floor, Runway Heights, Ayodhya Chowk, Rajkot - 360001\n\nWe&apos;re here Monday-Friday, 9AM-6PM IST.";
+      return "Our support team is available to help you! You can reach us at:\n• Email: support@fintranzact.com\n• Phone: +91 84900 9684\n• Address: 212, 2nd floor, Runway Heights, Ayodhya Chowk, Rajkot - 360001\n\nWe&apos;re here Monday-Friday, 9AM-6PM IST.";
     }
 
     if (message.includes('hello') || message.includes('hi') || message.includes('hey')) {
-      return "Hello! I&apos;m here to help you learn more about Finvera. What would you like to know?";
+      return "Hello! I&apos;m here to help you learn more about Fintranzact. What would you like to know?";
     }
 
     if (message.includes('accounting') || message.includes('software')) {
-      return "Finvera is a complete accounting software designed for Indian businesses. It helps you manage your finances, file GST returns, generate e-invoices, and create comprehensive financial reports - all in one platform.";
+      return "Fintranzact is a complete accounting software designed for Indian businesses. It helps you manage your finances, file GST returns, generate e-invoices, and create comprehensive financial reports - all in one platform.";
     }
 
     // Default response
-    return "Thank you for your question! For detailed information, I recommend:\n• Visiting our Features page to learn about our capabilities\n• Checking our Pricing page for plan details\n• Contacting our support team at support@finvera.com\n\nIs there anything specific about Finvera you'd like to know?";
+    return "Thank you for your question! For detailed information, I recommend:\n• Visiting our Features page to learn about our capabilities\n• Checking our Pricing page for plan details\n• Contacting our support team at support@fintranzact.com\n\nIs there anything specific about Fintranzact you'd like to know?";
   };
 
   const toggleChat = () => {
@@ -151,7 +151,7 @@ export default function Chatbot() {
                 <FiMessageCircle className="h-5 w-5" />
               </div>
               <div>
-                <h3 className="font-semibold text-lg">Finvera Support</h3>
+                <h3 className="font-semibold text-lg">Fintranzact Support</h3>
                 {!isMinimized && (
                   <p className="text-xs text-primary-100">We&apos;re here to help!</p>
                 )}
@@ -241,7 +241,7 @@ export default function Chatbot() {
                   </button>
                 </div>
                 <p className="text-xs text-gray-500 mt-2 text-center">
-                  Powered by Finvera • Usually replies in seconds
+                  Powered by Fintranzact • Usually replies in seconds
                 </p>
               </form>
             </>

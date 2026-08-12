@@ -118,7 +118,7 @@ export function TwoFactorVerificationInput({
 }
 
 export function TwoFactorSetup({
-  issuer = 'Finvera',
+  issuer = 'Fintranzact',
   accountName = 'your@email.com',
   progress = 33,
   qrPlaceholderText = 'QR Code',
@@ -227,7 +227,7 @@ export function RegistrationSignupForm({ onSubmit, loading, error }) {
   const [password, setPassword] = useState('');
 
   return (
-    <SectionCard title="Create your account" subtitle="Start your Finvera workspace in seconds.">
+    <SectionCard title="Create your account" subtitle="Start your Fintranzact workspace in seconds.">
       <form
         className="space-y-4"
         onSubmit={(e) => {

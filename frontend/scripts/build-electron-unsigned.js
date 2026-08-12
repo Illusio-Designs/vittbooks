@@ -13,8 +13,8 @@ async function buildElectron() {
     // Build configuration that skips code signing
     const config = {
       appId: 'com.finvera.desktop',
-      productName: 'Finvera',
-      copyright: 'Copyright © 2025 Finvera Solutions',
+      productName: 'Fintranzact',
+      copyright: 'Copyright © 2025 Fintranzact Solutions',
       directories: {
         output: 'dist-electron'
       },
@@ -28,7 +28,7 @@ async function buildElectron() {
         icon: 'public/Fav Icon/Fav_White_PNG@4x.png'
       },
       portable: {
-        artifactName: 'Finvera-${version}.exe'
+        artifactName: 'Fintranzact-${version}.exe'
       },
       compression: 'store',
       removePackageScripts: true,

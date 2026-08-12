@@ -11,7 +11,7 @@ export default function PageLayout({
   return (
     <>
       <Head>
-        <title>{title ? `${title} - Finvera Admin` : 'Finvera Admin'}</title>
+        <title>{title ? `${title} - Fintranzact Admin` : 'Fintranzact Admin'}</title>
       </Head>
       <div className={`space-y-3 w-full max-w-full overflow-x-hidden ${className}`}>
         {/* Header with breadcrumbs and actions */}

@@ -16,7 +16,7 @@ module.exports = {
     },
     extend: {
       colors: {
-        // Finvera Brand Colors
+        // Fintranzact Brand Colors
         primary: {
           50: '#f0f4fc',
           100: '#e1e9f9',
@@ -43,8 +43,8 @@ module.exports = {
         },
       },
       backgroundImage: {
-        'finvera-gradient': 'linear-gradient(135deg, #2140D7 0%, #3665E6 50%, #4A85EE 100%)',
-        'finvera-gradient-horizontal': 'linear-gradient(90deg, #2140D7 0%, #3665E6 50%, #4A85EE 100%)',
+        'fintranzact-gradient': 'linear-gradient(135deg, #2140D7 0%, #3665E6 50%, #4A85EE 100%)',
+        'fintranzact-gradient-horizontal': 'linear-gradient(90deg, #2140D7 0%, #3665E6 50%, #4A85EE 100%)',
       },
     },
   },

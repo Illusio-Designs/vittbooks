@@ -1,5 +1,5 @@
 @echo off
-echo Creating self-signed certificate for Finvera Client...
+echo Creating self-signed certificate for Fintranzact Client...
 echo.
 echo This script will create a test certificate for code signing.
 echo IMPORTANT: This is for TESTING only - users will still see warnings!

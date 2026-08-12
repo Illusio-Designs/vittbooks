@@ -88,7 +88,7 @@ export default function LandingPage() {
   };
   
   const getClientRegisterUrl = () => {
-    return clientRegisterUrl || 'https://client.finvera.solutions/register';
+    return clientRegisterUrl || 'https://client.fintranzact.com/register';
   };
 
   const formatPrice = (price, currency = 'INR') => {
@@ -150,7 +150,7 @@ export default function LandingPage() {
   return (
     <>
       <Head>
-        <title>Finvera - Your Trustable Accounting Partner | Complete Accounting Software</title>
+        <title>Fintranzact - Your Trustable Accounting Partner | Complete Accounting Software</title>
         <meta name="description" content="Complete accounting software for businesses with GST filing, e-invoicing, and comprehensive financial management" />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
       </Head>
@@ -664,7 +664,7 @@ export default function LandingPage() {
                 Mind-blowing convenience
               </ScrollFloat>
               <p className="text-base text-gray-600 max-w-3xl mx-auto">
-                Finvera is built to make your life easier. We&apos;re always doing things for you to experience ultimate convenience.
+                Fintranzact is built to make your life easier. We&apos;re always doing things for you to experience ultimate convenience.
               </p>
             </div>
             <AnimatedCardGrid
@@ -866,7 +866,7 @@ export default function LandingPage() {
                   containerClassName="mb-5"
                   textClassName="text-3xl md:text-4xl font-medium text-gray-900"
                 >
-                  Why Choose Finvera?
+                  Why Choose Fintranzact?
                 </ScrollFloat>
                 <AnimatedText className="text-base text-gray-600 max-w-3xl mx-auto">
                   Trusted by businesses for reliable accounting solutions
@@ -1036,7 +1036,7 @@ export default function LandingPage() {
                       </h4>
                     )}
                     <p className="text-gray-700 mb-6 italic text-lg leading-relaxed">
-                      {review.comment || 'Thank you for using Finvera!'}
+                      {review.comment || 'Thank you for using Fintranzact!'}
                     </p>
                     <div className="font-bold text-gray-900 text-lg">
                       {review.reviewer_name}
@@ -1058,7 +1058,7 @@ export default function LandingPage() {
               <div className="bg-gradient-to-br from-primary-50 to-white p-10 rounded-2xl border border-primary-100 shadow-lg">
                 <div className="text-primary-600 text-5xl mb-6 font-serif">&quot;</div>
                 <p className="text-gray-700 mb-6 italic text-lg leading-relaxed">
-                  Finvera has transformed how we manage our accounting. The GST filing feature alone saves us hours every month.
+                  Fintranzact has transformed how we manage our accounting. The GST filing feature alone saves us hours every month.
                 </p>
                 <div className="font-bold text-gray-900 text-lg">Rajesh Kumar</div>
                 <div className="text-sm text-gray-600">CEO, Tech Solutions Pvt Ltd</div>
@@ -1074,7 +1074,7 @@ export default function LandingPage() {
               <div className="bg-gradient-to-br from-primary-50 to-white p-10 rounded-2xl border border-primary-100 shadow-lg">
                 <div className="text-primary-600 text-5xl mb-6 font-serif">&quot;</div>
                 <p className="text-gray-700 mb-6 italic text-lg leading-relaxed">
-                  Excellent support and easy to use. Our accounting firm uses Finvera for all our clients.
+                  Excellent support and easy to use. Our accounting firm uses Fintranzact for all our clients.
                 </p>
                 <div className="font-bold text-gray-900 text-lg">Amit Patel</div>
                 <div className="text-sm text-gray-600">Partner, ABC Accounting Services</div>
@@ -1322,7 +1322,7 @@ export default function LandingPage() {
                     Ready to Get Started?
                   </ScrollFloat>
                   <p className="text-base text-gray-600 mb-8">
-                    Join thousands of businesses using Finvera for their accounting needs
+                    Join thousands of businesses using Fintranzact for their accounting needs
                   </p>
                   <div className="flex flex-col sm:flex-row gap-4 justify-center">
                     <a
@@ -1377,8 +1377,8 @@ export default function LandingPage() {
                       </div>
                       <div>
                         <div className="font-medium text-gray-700 text-sm">Email</div>
-                        <a href="mailto:support@finvera.com" className="text-gray-600 text-sm hover:text-primary-600 transition">
-                          support@finvera.com
+                        <a href="mailto:support@fintranzact.com" className="text-gray-600 text-sm hover:text-primary-600 transition">
+                          support@fintranzact.com
                         </a>
                       </div>
                     </div>

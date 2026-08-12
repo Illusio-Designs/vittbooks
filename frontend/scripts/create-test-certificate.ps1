@@ -1,11 +1,11 @@
 # PowerShell script to create a self-signed certificate for code signing
 # This is for TESTING purposes only - users will still see security warnings
 
-Write-Host "Creating self-signed certificate for Finvera Client..." -ForegroundColor Green
+Write-Host "Creating self-signed certificate for Fintranzact Client..." -ForegroundColor Green
 
 # Certificate details
-$certName = "Finvera Solutions Test Certificate"
-$certSubject = "CN=Finvera Solutions, O=Finvera Solutions, C=US"
+$certName = "Fintranzact Solutions Test Certificate"
+$certSubject = "CN=Fintranzact Solutions, O=Fintranzact Solutions, C=US"
 $certStore = "Cert:\CurrentUser\My"
 $exportPath = ".\electron\assets\finvera-test-cert.pfx"
 $password = "finvera123"

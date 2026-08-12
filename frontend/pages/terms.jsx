@@ -8,8 +8,8 @@ export default function TermsPage() {
   return (
     <>
       <Head>
-        <title>Terms of Service - Finvera</title>
-        <meta name="description" content="Finvera Terms of Service - Legal terms and conditions" />
+        <title>Terms of Service - Fintranzact</title>
+        <meta name="description" content="Fintranzact Terms of Service - Legal terms and conditions" />
       </Head>
 
       <div className="min-h-screen bg-white">
@@ -40,7 +40,7 @@ export default function TermsPage() {
                   1. Acceptance of Terms
                 </ScrollFloat>
                 <p className="text-base text-gray-600 leading-relaxed font-normal">
-                    By accessing and using Finvera&apos;s services, you accept and agree to be bound by these Terms of Service. 
+                    By accessing and using Fintranzact&apos;s services, you accept and agree to be bound by these Terms of Service. 
                     If you do not agree to these terms, please do not use our services.
                   </p>
                 </section>
@@ -58,7 +58,7 @@ export default function TermsPage() {
                   2. Description of Service
                 </ScrollFloat>
                 <p className="text-base text-gray-600 leading-relaxed mb-4 font-normal">
-                  Finvera provides cloud-based accounting software and related services including GST filing, 
+                  Fintranzact provides cloud-based accounting software and related services including GST filing, 
                   e-invoicing, financial reporting, compliance management, and loan facilitation services.
                 </p>
                 <p className="text-base text-gray-600 leading-relaxed font-normal">
@@ -164,11 +164,11 @@ export default function TermsPage() {
                       <li>Agree to share your financial data with FinBox and their lending partners for loan processing, 
                           credit assessment, and related services.</li>
                     <li>Understand that loan approval and terms are determined by FinBox and their lending partners, 
-                        not by Finvera.</li>
+                        not by Fintranzact.</li>
                   </ul>
                   <p className="text-base text-gray-600 leading-relaxed">
                     <strong>Provider Terms:</strong> Your use of FinBox services is also subject to FinBox&apos;s terms 
-                    of service and privacy policy. Finvera acts as a facilitator and is not responsible for loan 
+                    of service and privacy policy. Fintranzact acts as a facilitator and is not responsible for loan 
                     decisions, interest rates, or loan terms offered by FinBox or their lending partners.
                   </p>
                 </div>
@@ -186,7 +186,7 @@ export default function TermsPage() {
                   </ul>
                   <p className="text-base text-gray-600 leading-relaxed">
                     <strong>Provider Terms:</strong> Your use of Sandbox API services is subject to Sandbox&apos;s 
-                    terms of service. Finvera facilitates the integration but is not responsible for errors in third-party 
+                    terms of service. Fintranzact facilitates the integration but is not responsible for errors in third-party 
                     API responses or compliance document generation.
                   </p>
                 </div>
@@ -205,7 +205,7 @@ export default function TermsPage() {
                   6. Intellectual Property
                 </ScrollFloat>
                 <p className="text-base text-gray-600 leading-relaxed font-normal">
-                  All content, features, and functionality of Finvera are owned by us and protected by copyright, 
+                  All content, features, and functionality of Fintranzact are owned by us and protected by copyright, 
                   trademark, and other intellectual property laws. You may not copy, modify, or distribute our 
                   software without permission.
                 </p>
@@ -224,12 +224,12 @@ export default function TermsPage() {
                   7. Limitation of Liability
                 </ScrollFloat>
                 <p className="text-base text-gray-600 leading-relaxed mb-4 font-normal">
-                  Finvera shall not be liable for any indirect, incidental, special, or consequential damages 
+                  Fintranzact shall not be liable for any indirect, incidental, special, or consequential damages 
                   arising from your use of the service. Our total liability shall not exceed the amount you 
                   paid us in the 12 months preceding the claim.
                 </p>
                 <p className="text-base text-gray-600 leading-relaxed mb-4 font-normal">
-                  <strong>Third-Party Services:</strong> Finvera is not liable for:
+                  <strong>Third-Party Services:</strong> Fintranzact is not liable for:
                 </p>
                 <ul className="list-disc list-inside space-y-2 text-gray-600 ml-4 mb-4 text-sm font-normal">
                   <li>Loan decisions, interest rates, or terms offered by FinBox or their lending partners</li>
@@ -239,7 +239,7 @@ export default function TermsPage() {
                   <li>Data breaches or security incidents at third-party service providers</li>
                 </ul>
                 <p className="text-base text-gray-600 leading-relaxed font-normal">
-                  You acknowledge that Finvera acts as a facilitator for third-party services and is not responsible 
+                  You acknowledge that Fintranzact acts as a facilitator for third-party services and is not responsible 
                   for the quality, accuracy, or availability of services provided by third-party providers.
                 </p>
               </section>
@@ -265,7 +265,7 @@ export default function TermsPage() {
                   <li><strong>Accuracy of Information:</strong> You are responsible for providing accurate and complete 
                       information. False or misleading information may result in loan rejection or legal consequences.</li>
                   <li><strong>Loan Decisions:</strong> Loan approval, interest rates, and terms are determined solely by 
-                      FinBox and their lending partners. Finvera does not guarantee loan approval or specific terms.</li>
+                      FinBox and their lending partners. Fintranzact does not guarantee loan approval or specific terms.</li>
                   <li><strong>Account Aggregator:</strong> Bank statement access through Account Aggregator is subject to 
                       RBI regulations and the terms of your bank and the Account Aggregator service provider.</li>
                   <li><strong>Credit Inquiries:</strong> You understand that credit score checks are soft inquiries that 
@@ -314,7 +314,7 @@ export default function TermsPage() {
                 </ScrollFloat>
                 <p className="text-base text-gray-600 leading-relaxed font-normal">
                   For questions about these Terms, loan applications, or third-party service integrations, 
-                  please contact us at legal@finvera.com
+                  please contact us at legal@fintranzact.com
                 </p>
               </section>
             </div>

@@ -162,7 +162,7 @@ const getAdminMenuItems = (userRole) => {
   ];
 };
 
-export default function AdminLayout({ children, title = 'Admin Panel - Finvera' }) {
+export default function AdminLayout({ children, title = 'Admin Panel - Fintranzact' }) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   // Load sidebar collapsed state from localStorage, default to false
   const [sidebarCollapsed, setSidebarCollapsed] = useState(() => {

@@ -15,7 +15,7 @@ export default function HelpPage() {
 
   const faqs = [
     {
-      question: 'How do I get started with Finvera?',
+      question: 'How do I get started with Fintranzact?',
       answer: 'Simply sign up for a free account, add your business details, and start managing your accounting. No credit card required for the free trial.'
     },
     {
@@ -43,8 +43,8 @@ export default function HelpPage() {
   return (
     <>
       <Head>
-        <title>Help Center - Finvera | Support & Documentation</title>
-        <meta name="description" content="Get help with Finvera. Find answers to common questions and learn how to use our platform." />
+        <title>Help Center - Fintranzact | Support & Documentation</title>
+        <meta name="description" content="Get help with Fintranzact. Find answers to common questions and learn how to use our platform." />
       </Head>
 
       <div className="min-h-screen bg-white">

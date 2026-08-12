@@ -1,7 +1,7 @@
 const fs = require('fs');
 const path = require('path');
 
-console.log('🚀 Setting up Electron for Finvera Client...\n');
+console.log('🚀 Setting up Electron for Fintranzact Client...\n');
 
 // Create assets directory if it doesn't exist
 const assetsDir = path.join(__dirname, '../electron/assets');

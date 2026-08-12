@@ -1,10 +1,10 @@
 {
   "name": "finvera-desktop",
   "version": "1.0.0",
-  "description": "Finvera - Complete GST & Accounting Desktop Software",
+  "description": "Fintranzact - Complete GST & Accounting Desktop Software",
   "author": {
-    "name": "Finvera Solutions",
-    "email": "support@finvera.com"
+    "name": "Fintranzact Solutions",
+    "email": "support@fintranzact.com"
   },
   "main": "electron/main.js",
   "homepage": "./",
@@ -50,8 +50,8 @@
   },
   "build": {
     "appId": "com.finvera.desktop",
-    "productName": "Finvera",
-    "copyright": "Copyright © 2025 Finvera Solutions",
+    "productName": "Fintranzact",
+    "copyright": "Copyright © 2025 Fintranzact Solutions",
     "directories": {
       "output": "dist-electron"
     },
@@ -71,7 +71,7 @@
       "signDlls": false
     },
     "portable": {
-      "artifactName": "Finvera-${version}.exe"
+      "artifactName": "Fintranzact-${version}.exe"
     },
     "compression": "store",
     "removePackageScripts": true,

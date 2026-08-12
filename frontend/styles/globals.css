@@ -29,20 +29,20 @@
 }
 
 :root {
-  /* Finvera Brand Colors */
-  --finvera-primary: #3e60ab;
-  --finvera-primary-dark: #243a75;
-  --finvera-secondary: #243a75;
+  /* Fintranzact Brand Colors */
+  --fintranzact-primary: #3e60ab;
+  --fintranzact-primary-dark: #243a75;
+  --fintranzact-secondary: #243a75;
   
   /* Gradient Colors */
-  --finvera-gradient-dark: #2140D7;
-  --finvera-gradient-medium: #3665E6;
-  --finvera-gradient-light: #4A85EE;
-  --finvera-tagline: #3D78E0;
+  --fintranzact-gradient-dark: #2140D7;
+  --fintranzact-gradient-medium: #3665E6;
+  --fintranzact-gradient-light: #4A85EE;
+  --fintranzact-tagline: #3D78E0;
   
   /* Neutral Colors */
-  --finvera-white: #FFFFFF;
-  --finvera-black: #000000;
+  --fintranzact-white: #FFFFFF;
+  --fintranzact-black: #000000;
   
   /* Legacy variables for compatibility */
   --foreground-rgb: 0, 0, 0;

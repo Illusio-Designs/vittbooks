@@ -1,9 +1,9 @@
 /**
- * Finvera Brand Colors
+ * Fintranzact Brand Colors
  * Based on official brand guidelines
  */
 
-export const finveraColors = {
+export const fintranzactColors = {
   // Primary Brand Blues
   primary: {
     50: '#f0f4fc',
@@ -82,26 +82,26 @@ export const finveraColors = {
 export const cssVariables = `
   :root {
     /* Primary Colors */
-    --finvera-primary: ${finveraColors.primary[500]};
-    --finvera-primary-dark: ${finveraColors.primary[800]};
-    --finvera-secondary: ${finveraColors.primary[800]};
+    --fintranzact-primary: ${fintranzactColors.primary[500]};
+    --fintranzact-primary-dark: ${fintranzactColors.primary[800]};
+    --fintranzact-secondary: ${fintranzactColors.primary[800]};
     
     /* Gradient Colors */
-    --finvera-gradient-dark: ${finveraColors.gradient.dark};
-    --finvera-gradient-medium: ${finveraColors.gradient.medium};
-    --finvera-gradient-light: ${finveraColors.gradient.light};
-    --finvera-tagline: ${finveraColors.gradient.tagline};
+    --fintranzact-gradient-dark: ${fintranzactColors.gradient.dark};
+    --fintranzact-gradient-medium: ${fintranzactColors.gradient.medium};
+    --fintranzact-gradient-light: ${fintranzactColors.gradient.light};
+    --fintranzact-tagline: ${fintranzactColors.gradient.tagline};
     
     /* Neutral Colors */
-    --finvera-white: ${finveraColors.neutral.white};
-    --finvera-black: ${finveraColors.neutral.black};
+    --fintranzact-white: ${fintranzactColors.neutral.white};
+    --fintranzact-black: ${fintranzactColors.neutral.black};
     
     /* Semantic Colors */
-    --finvera-success: ${finveraColors.success[500]};
-    --finvera-error: ${finveraColors.error[500]};
-    --finvera-warning: ${finveraColors.warning[500]};
-    --finvera-info: ${finveraColors.info[500]};
+    --fintranzact-success: ${fintranzactColors.success[500]};
+    --fintranzact-error: ${fintranzactColors.error[500]};
+    --fintranzact-warning: ${fintranzactColors.warning[500]};
+    --fintranzact-info: ${fintranzactColors.info[500]};
   }
 `;
 
-export default finveraColors;
+export default fintranzactColors;

@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 /**
- * Environment Setup Script for Finvera Mobile App
+ * Environment Setup Script for Fintranzact Mobile App
  * 
  * This script helps set up environment configurations for different environments.
  * Usage: node scripts/setup-env.js [environment]
@@ -124,7 +124,7 @@ function showCurrentEnvironment() {
 
 function showHelp() {
   console.log(`
-📱 Finvera Mobile App - Environment Setup
+📱 Fintranzact Mobile App - Environment Setup
 
 Usage:
   node scripts/setup-env.js [command] [environment]

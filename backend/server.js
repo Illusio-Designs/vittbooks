@@ -19,7 +19,7 @@ const NODE_ENV = process.env.NODE_ENV || 'development';
 async function startServer() {
   try {
     // Log environment status at startup (without sensitive data)
-    logger.info('🚀 Starting Finvera Backend Server...');
+    logger.info('🚀 Starting Fintranzact Backend Server...');
     logger.info('🔍 Environment check:');
     logger.info(`   DATABASE_URL: ${process.env.DATABASE_URL ? 'SET' : 'NOT SET'}`);
     logger.info(`   DB_HOST: ${process.env.DB_HOST || 'NOT SET (will default to localhost)'}`);

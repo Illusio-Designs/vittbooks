@@ -5,9 +5,9 @@ import ProgressBar from '../../ui/ProgressBar';
 import Tooltip from '../../ui/Tooltip';
 import SectionCard from '../_shared/SectionCard';
 
-export function WelcomeScreen({ title = 'Welcome to Finvera', subtitle = 'Let’s get you set up.', onStart }) {
+export function WelcomeScreen({ title = 'Welcome to Fintranzact', subtitle = 'Let’s get you set up.', onStart }) {
   return (
-    <div className="rounded-2xl bg-finvera-gradient text-white p-8 shadow">
+    <div className="rounded-2xl bg-fintranzact-gradient text-white p-8 shadow">
       <div className="text-3xl font-semibold">{title}</div>
       <div className="mt-2 text-white/90">{subtitle}</div>
       <div className="mt-6">

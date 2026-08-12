@@ -23,7 +23,7 @@ export default function WebsiteHeader() {
   }, []);
   
   const getClientRegisterUrl = () => {
-    return clientUrl || 'https://client.finvera.solutions/register';
+    return clientUrl || 'https://client.fintranzact.com/register';
   };
 
   return (
@@ -34,10 +34,10 @@ export default function WebsiteHeader() {
           <Link href="/" className="flex items-center">
             <div className="bg-white rounded-md px-3 py-2 flex items-center justify-center">
               <Image 
-                src="/Finallogo.png" 
-                alt="Finvera" 
-                width={3464}
-                height={889}
+                src="/Finallogo.png"
+                alt="Fintranzact"
+                width={4042}
+                height={933}
                 className="h-12 w-auto object-contain max-w-[180px]"
                 priority
               />
